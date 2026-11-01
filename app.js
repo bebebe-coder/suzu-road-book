@@ -760,6 +760,10 @@ $('#btn-gacha-map').addEventListener('click', () => {
 
 const plateDigits = () => (state.plate || '').replace(/\D/g, '').slice(0, 4);
 
+/** 登録済みなら、割り当てられたひらがな（またはA〜Z）。未登録なら空 */
+const plateMark = () => state.plateMark || '';
+const plateDone = () => !!(state.plateMark && state.plateKey);
+
 /** 上段の分類番号にあたる数字。ここでは訪れたスポット数を2桁で入れる */
 const plateClass = () => String(nVisited()).padStart(2, '0');
 
@@ -775,7 +779,7 @@ function drawGarage() {
   const got = BADGES.filter((b) => n >= b.need).length;
   $('#badge-count').textContent = '獲得 ' + got + ' / ' + BADGES.length;
 
-  const opts = { plate: plateDigits(), cls: plateClass() };
+  const opts = { plate: plateDigits(), cls: plateClass(), mark: plateMark() };
 
   $('#badges').innerHTML = BADGES.map((b) => {
     const open = n >= b.need;
@@ -796,6 +800,8 @@ function drawGarage() {
   const dots = Badge.plateNumber(plateDigits()).replace(/\d/g, '').length;
   $('#plate-dots').innerHTML = '<i>・</i>'.repeat(dots);
   $('#plate-cls').textContent = plateClass();
+  $('#plate-mark').textContent = plateMark();
+  drawPlateReg();
 
   const photos = Object.keys(photoUrls).length;
   $('#garage-stats').innerHTML = [
@@ -807,7 +813,83 @@ function drawGarage() {
 
 // 空のときは入力欄がごく細くなるので、プレートのどこを押しても入力できるようにする
 $('.plate').addEventListener('click', (e) => {
+  if (plateDone()) return;                       // 登録済みの番号は押しても動かさない
   if (e.target !== $('#plate')) $('#plate').focus();
+});
+
+/* ---------- 登録ナンバーの登録 ----------
+
+   窓口が持つのは「その5桁が使われているか」だけ。氏名も連絡先も送らない。
+   希望の数字を送ると、まだ使われていないひらがな（尽きたらA〜Z）が返る。
+   一緒に返る再発行キーは、端末を変えたときに番号を取り戻すためのもので、
+   記録の書き出しに含まれる（state ごと保存されるため）。 */
+
+function drawPlateReg() {
+  const btn = $('#btn-plate');
+  const inp = $('#plate');
+  if (!btn || !inp) return;
+  const n = Plate.normalize(plateDigits());
+
+  inp.readOnly = plateDone();
+
+  if (plateDone()) {
+    btn.textContent = '別の番号にする';
+    btn.disabled = false;
+    $('#plate-note').textContent =
+      'この番号はあなただけのものです。端末を変えるときは、BOOKタブの「記録を書き出す」で' +
+      '持ち出せば取り戻せます。';
+    return;
+  }
+  btn.textContent = 'この番号で登録する';
+  btn.disabled = !n;
+  if (!n) {
+    $('#plate-note').textContent = '1〜9999の好きな番号を入れてください。';
+  } else {
+    $('#plate-note').textContent =
+      '登録すると、まだ使われていないひらがなが付いて、あなただけの番号になります。';
+  }
+}
+
+let claiming = false;
+
+$('#btn-plate').addEventListener('click', async () => {
+  if (claiming) return;
+  const n = Plate.normalize(plateDigits());
+  if (!n) { $('#plate').focus(); return; }
+
+  if (plateDone() && !confirm('いまの番号を手放して、別の番号を取り直します。よろしいですか？')) return;
+
+  claiming = true;
+  $('#btn-plate').disabled = true;
+  $('#plate-note').textContent = '空いている番号を探しています…';
+
+  const r = await Plate.claim(n);
+  claiming = false;
+
+  if (r.ok && r.data.plate) {
+    state.plate = r.data.number;          // 先頭の0は詰められて返る
+    state.plateMark = r.data.mark;
+    state.plateKey = r.data.key;
+    Store.saveState(state);
+    $('#plate').value = r.data.number;
+    drawGarage();
+    $('#plate-note').textContent = r.data.plate + ' で登録しました。';
+    toast(r.data.plate + ' を取得しました');
+    return;
+  }
+
+  drawPlateReg();
+  if (r.offline) {
+    $('#plate-note').textContent =
+      '窓口につながりませんでした。番号はこの端末の中だけの飾りとして、このまま使えます。';
+  } else if (r.status === 409) {
+    $('#plate-note').textContent =
+      'この数字は67通りすべて使われていました。別の数字でお試しください。';
+  } else if (r.status === 429) {
+    $('#plate-note').textContent = '少し時間をおいてからお試しください。';
+  } else {
+    $('#plate-note').textContent = (r.data && r.data.error) || '登録できませんでした。';
+  }
 });
 
 $('#plate').addEventListener('input', (e) => {

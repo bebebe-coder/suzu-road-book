@@ -526,9 +526,13 @@ main {
 }
 /* 本物のナンバープレートと同じく4つの枠。足りないぶんは中点で埋まる。
    枠の幅を固定してあるので、桁数が変わってもプレートの大きさは動かない */
+/* ひらがなが付くと横に伸びるが、数字4枠ぶんの幅は動かさない。
+   枠を動かすと、登録した瞬間に桁がずれて見える */
 .plate-row {
-  display: flex; align-items: center; width: 96px; height: 40px; margin: 0 auto;
+  display: flex; align-items: center; justify-content: center;
+  height: 40px; margin: 0 auto;
 }
+.plate-num { display: flex; align-items: center; width: 96px; flex: 0 0 auto; }
 .plate-dots { display: inline-flex; flex: 0 0 auto; }
 .plate-dots i {
   display: inline-block; width: 21px; font-style: normal; text-align: center;
@@ -901,3 +905,12 @@ body.has-hint .sheet, body.has-hint .next { padding-bottom: calc(20px + var(--sa
   }
   .boot-clouds, .boot.is-run .boot-btn, .boot.is-run .boot-btn::after { animation: none !important; }
 }
+
+/* 登録ナンバーの、割り当てられたひらがな（またはA〜Z） */
+.plate-mark {
+  flex: 0 0 auto; font-size: 24px; font-weight: 700; color: #17242e;
+  margin-right: 3px; line-height: 1;
+}
+.plate-mark:empty { display: none; }
+.plate-reg { margin-top: 10px; }
+.plate-reg .btn { background: rgba(255,255,255,.92); }

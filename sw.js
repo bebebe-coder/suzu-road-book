@@ -6,7 +6,7 @@
    ※Cache Storage は環境によっては使えない（プライベートブラウズ、容量逼迫など）。
      その場合もアプリが壊れないよう、キャッシュの失敗はすべて素通しにする。 */
 
-const VERSION  = 'v11';
+const VERSION  = 'v12';
 const SHELL    = 'srb-shell-' + VERSION;
 const TILES    = 'srb-tiles-' + VERSION;
 const TILE_MAX = 500;                // 取っておくタイルの上限
@@ -18,7 +18,7 @@ const SPOT_IDS = [
 
 const SHELL_FILES = [
   './', './index.html', './style.css',
-  './spots.js', './store.js', './badge.js', './backup.js', './app.js',
+  './spots.js', './store.js', './badge.js', './plate.js', './backup.js', './app.js',
   './manifest.json', './img/credits.json',
   './icons/icon-192.png', './icons/icon-512.png', './icons/apple-touch-icon.png',
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',

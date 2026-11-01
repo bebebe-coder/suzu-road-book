@@ -3,7 +3,7 @@
 
 // 画面の右上に出る版。直したら必ず上げる。sw.js の VERSION と揃えること。
 // （揃っていないと、古いキャッシュを開いていても気づけない）
-const APP_VERSION = 'v11';
+const APP_VERSION = 'v12';
 
 const CATEGORIES = [
   { id: 'all',    name: 'すべて' },

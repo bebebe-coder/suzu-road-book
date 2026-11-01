@@ -42,7 +42,8 @@ const Badge = (function () {
     const c = SKIN[tier] || SKIN.bronze;
     const u = 'b' + (++seq) + '-';
     const name = (o && o.name) || tier.toUpperCase();
-    const num = plateNumber(o && o.plate);
+    // 登録済みなら、本物のプレートと同じく数字の左にひらがなが入る
+    const num = ((o && o.mark) || '') + plateNumber(o && o.plate);
     const cls = (o && o.cls) || '00';
 
     return [
@@ -142,8 +143,8 @@ const Badge = (function () {
       '  <text x="100" y="132" text-anchor="middle" font-size="9" font-weight="700"',
       '        letter-spacing="1.4" fill="#2a3a46"',
       '        font-family="\'Hiragino Sans\',\'Yu Gothic\',sans-serif">珠洲 ' + cls + '</text>',
-      '  <text x="100" y="150" text-anchor="middle" font-size="19" font-weight="800"',
-      '        letter-spacing="1" fill="#17242e"',
+      '  <text x="100" y="150" text-anchor="middle" font-size="' + (num.length > 4 ? 17 : 19) + '"',
+      '        font-weight="800" letter-spacing="0.5" fill="#17242e"',
       '        font-family="\'Hiragino Sans\',\'Yu Gothic\',monospace">' + num + '</text>',
       '</g>',
 

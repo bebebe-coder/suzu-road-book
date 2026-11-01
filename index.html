@@ -264,13 +264,19 @@
         <span class="plate-label">登録ナンバー</span>
         <div class="plate-top"><span>珠洲</span><strong id="plate-cls">00</strong></div>
         <div class="plate-row">
-          <span class="plate-dots" id="plate-dots"></span>
-          <input id="plate" class="plate-input" type="text" inputmode="numeric"
-                 maxlength="4" aria-label="登録ナンバー">
+          <span class="plate-mark" id="plate-mark"></span>
+          <span class="plate-num">
+            <span class="plate-dots" id="plate-dots"></span>
+            <input id="plate" class="plate-input" type="text" inputmode="numeric"
+                   maxlength="4" aria-label="登録ナンバー">
+          </span>
         </div>
       </div>
-      <p class="garage-note">プレートをタップして、4桁までの好きな番号を入れてください。<br>
-         バッジに刻まれます。上段の数字は訪れたスポット数です。</p>
+      <div class="plate-reg">
+        <button type="button" id="btn-plate" class="btn btn-sm">この番号で登録する</button>
+      </div>
+      <p class="garage-note" id="plate-note">希望の番号を入れて登録すると、
+         まだ使われていないひらがなが付いて、あなただけの番号になります。</p>
     </div>
 
     <div class="garage-head">
@@ -365,6 +371,7 @@
 <script src="spots.js"></script>
 <script src="store.js"></script>
 <script src="badge.js"></script>
+<script src="plate.js"></script>
 <script src="backup.js"></script>
 <script src="app.js"></script>
 </body>
