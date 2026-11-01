@@ -7,10 +7,8 @@ compatibility_date = "2026-10-01"
 binding = "PLATES"
 id = "eec1d4bcaec74580982d893ea1bdc145"
 
-# 荒らし対策。1つのIPから1分あたり20回まで。
-# KVで回数を数えると書き込み枠（1日1,000回）を食い潰すため、Cloudflare側の仕組みを使う
-[[unsafe.bindings]]
-name = "LIMIT"
-type = "ratelimit"
-namespace_id = "1001"
-simple = { limit = 20, period = 60 }
+# 回数の制限は src/index.js 側で Cache API を使って数えている。
+#
+# Cloudflare の rate limiting バインディング（unsafe）も試したが、この構成では
+# まったく効かなかった（1分20回の設定で45回続けても1度も止まらないことを実測）。
+# KVで数えると書き込み枠（1日1,000回）を食い潰すため、Cache API に落ち着いた。

@@ -30,6 +30,18 @@ const Badge = (function () {
 
   let seq = 0;
 
+  /* 窓口が割り当てうる文字の全部。これ以外は受け付けない。
+
+     ナンバーはSVGの文字列に差し込まれるため、ここを素通しにすると
+     読み込んだ記録ファイル（JSON）から任意のSVG・スクリプトを混ぜ込めてしまう。
+     数字は正規表現で落としているので、穴はこの1文字だけだった。 */
+  const MARKS =
+    'あいうえかきくけこさすせそたちつてとなにぬねのはひふほまみむめもやゆよらりるれろわ' +
+    'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+
+  const safeMark = (m) =>
+    (typeof m === 'string' && m.length === 1 && MARKS.indexOf(m) >= 0) ? m : '';
+
   /** 4桁の枠に対して、足りないぶんを中点で埋める（本物のナンバープレートの書式） */
   function plateNumber(digits) {
     const d = String(digits || '').replace(/\D/g, '').slice(0, 4);
@@ -43,7 +55,7 @@ const Badge = (function () {
     const u = 'b' + (++seq) + '-';
     const name = (o && o.name) || tier.toUpperCase();
     // 登録済みなら、本物のプレートと同じく数字の左にひらがなが入る
-    const num = ((o && o.mark) || '') + plateNumber(o && o.plate);
+    const num = safeMark(o && o.mark) + plateNumber(o && o.plate);
     const cls = (o && o.cls) || '00';
 
     return [
@@ -212,5 +224,6 @@ const Badge = (function () {
     });
   }
 
-  return { svg: svg, cardSvg: cardSvg, toPng: toPng, plateNumber: plateNumber };
+  return { svg: svg, cardSvg: cardSvg, toPng: toPng,
+           plateNumber: plateNumber, safeMark: safeMark };
 })();

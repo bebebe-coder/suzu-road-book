@@ -59,6 +59,33 @@ async function sha256(text) {
   return Array.from(new Uint8Array(buf)).map((x) => x.toString(16).padStart(2, '0')).join('');
 }
 
+/* ---------- 回数の制限 ----------
+
+   Cloudflare の rate limiting バインディング（unsafe）は、この構成では効かなかった。
+   1分20回の設定で45回続けても1度も止まらないことを実測している。
+   そこで、数えるのに Cache API を使う。KVの書き込み枠（1日1,000回）を使わずに済む。
+
+   厳密ではない（同時に来ると数え落とす／Cloudflareの拠点ごとに別勘定）。
+   それでも、素朴な連打を止めるには十分で、ここでの目的はそれ。 */
+
+const COUNTER = 'https://counter.suzu-plate.invalid/';
+
+async function underLimit(key, limit, ttl) {
+  try {
+    const cache = caches.default;
+    const req = new Request(COUNTER + encodeURIComponent(key));
+    const hit = await cache.match(req);
+    const n = hit ? (Number(await hit.text()) || 0) : 0;
+    if (n >= limit) return false;
+    await cache.put(req, new Response(String(n + 1), {
+      headers: { 'cache-control': 'max-age=' + ttl }
+    }));
+    return true;
+  } catch (e) {
+    return true;            // 数えられなくても窓口は開けておく
+  }
+}
+
 /** その数字で空いている最初の文字。使用済みは idx:<数字> に1つの文字列でまとめてある */
 async function firstFree(env, n) {
   const taken = (await env.PLATES.get('idx:' + n)) || '';
@@ -82,7 +109,17 @@ async function check(env, origin, url) {
   });
 }
 
-async function claim(env, origin, req) {
+async function claim(env, origin, req, ip) {
+  /* 確保は1回につきKVへ2回書く。書き込み枠は1日1,000回しかないので、
+     ここを無制限にすると「無料枠の上限」がそのまま攻撃対象になる。
+     全体で1日300件（＝600回の書き込み）までに抑えてある。 */
+  if (!await underLimit('claim-ip:' + ip, 10, 3600)) {
+    return reply(origin, 429, { error: '登録の回数が多すぎます。しばらくしてからお試しください' });
+  }
+  if (!await underLimit('claim-all:' + new Date().toISOString().slice(0, 10), 300, 86400)) {
+    return reply(origin, 429, { error: '本日の登録受付は上限に達しました' });
+  }
+
   let body;
   try { body = await req.json(); } catch (e) { body = {}; }
 
@@ -92,12 +129,27 @@ async function claim(env, origin, req) {
   const { mark, taken } = await firstFree(env, n);
   if (!mark) return reply(origin, 409, { error: 'この数字は空きがありません', number: n });
 
+  /* 使用済み一覧（idx）の反映には時間差があるため、ごく稀に
+     すでに誰かが持っている番号を「空き」と見てしまうことがある。
+     その番号の本体をもう一度見て、あれば上書きしない。
+     上書きを許すと、先に持っていた人の鍵が消えて番号を奪える。 */
+  if (await env.PLATES.get('plate:' + mark + n)) {
+    return reply(origin, 409, { error: 'ちょうど埋まりました。もう一度お試しください', number: n });
+  }
+
   const key = newKey();
-  await env.PLATES.put('plate:' + mark + n, JSON.stringify({
-    at: new Date().toISOString(),
-    h: await sha256(key)             // 鍵そのものは置かない
-  }));
-  await env.PLATES.put('idx:' + n, taken + mark);
+  try {
+    await env.PLATES.put('plate:' + mark + n, JSON.stringify({
+      at: new Date().toISOString(),
+      h: await sha256(key)           // 鍵そのものは置かない
+    }));
+    await env.PLATES.put('idx:' + n, taken + mark);
+  } catch (e) {
+    /* KVの書き込み枠（1日1,000回）を使い切ると、ここで落ちる。
+       そのまま500にすると何が起きたか分からないので、はっきり返す。
+       空き確認（読み取り）は10万回／日あるので、そちらは動き続ける。 */
+    return reply(origin, 503, { error: '本日の登録受付は終了しました。明日お試しください' });
+  }
 
   return reply(origin, 200, {
     number: n, mark: mark, plate: display(mark, n), key: key
@@ -127,15 +179,14 @@ export default {
     if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: headers(origin) });
     if (!SITES.has(origin)) return reply('', 403, { error: 'この窓口は指定のサイトからのみ使えます' });
 
-    // 同じ相手からの連打を止める。41万件を総取りされないようにするため
-    if (env.LIMIT) {
-      const ip = req.headers.get('CF-Connecting-IP') || 'unknown';
-      const { success } = await env.LIMIT.limit({ key: ip });
-      if (!success) return reply(origin, 429, { error: '少し時間をおいてからお試しください' });
+    // 同じ相手からの連打を止める。67万件を総取りされないようにするため
+    const ip = req.headers.get('CF-Connecting-IP') || 'unknown';
+    if (!await underLimit('all:' + ip, 60, 60)) {
+      return reply(origin, 429, { error: '少し時間をおいてからお試しください' });
     }
 
     if (req.method === 'GET'  && url.pathname === '/v1/check')  return check(env, origin, url);
-    if (req.method === 'POST' && url.pathname === '/v1/claim')  return claim(env, origin, req);
+    if (req.method === 'POST' && url.pathname === '/v1/claim')  return claim(env, origin, req, ip);
     if (req.method === 'POST' && url.pathname === '/v1/verify') return verify(env, origin, req);
 
     return reply(origin, 404, { error: 'そのような窓口はありません' });

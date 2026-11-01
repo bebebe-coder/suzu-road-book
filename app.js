@@ -760,9 +760,10 @@ $('#btn-gacha-map').addEventListener('click', () => {
 
 const plateDigits = () => (state.plate || '').replace(/\D/g, '').slice(0, 4);
 
-/** 登録済みなら、割り当てられたひらがな（またはA〜Z）。未登録なら空 */
-const plateMark = () => state.plateMark || '';
-const plateDone = () => !!(state.plateMark && state.plateKey);
+/** 登録済みなら、割り当てられたひらがな（またはA〜Z）。未登録なら空。
+    記録ファイルは読み込めてしまうので、画面に出す手前で必ず通す */
+const plateMark = () => Badge.safeMark(state.plateMark);
+const plateDone = () => !!(plateMark() && state.plateKey);
 
 /** 上段の分類番号にあたる数字。ここでは訪れたスポット数を2桁で入れる */
 const plateClass = () => String(nVisited()).padStart(2, '0');
