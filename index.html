@@ -1,0 +1,337 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<meta name="theme-color" content="#ffffff">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="SUZU ROAD">
+<title>MY SUZU ROAD BOOK</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H"
+      crossorigin="anonymous">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="bar">
+  <div class="brand">
+    <svg class="brand-mark" viewBox="0 0 40 40" aria-hidden="true">
+      <circle cx="20" cy="20" r="19" fill="#e8f2f9"/>
+      <path d="M6 24 q7-9 14-9 t14 9" fill="none" stroke="#0e6e9e" stroke-width="2.6" stroke-linecap="round"/>
+      <path d="M6 30 q7-6 14-6 t14 6" fill="none" stroke="#5fb0dd" stroke-width="2.2" stroke-linecap="round"/>
+      <circle cx="27" cy="12" r="3.6" fill="#f2a33c"/>
+    </svg>
+    <div class="brand-text">
+      <span class="brand-main">MY SUZU ROAD BOOK</span>
+      <span class="brand-sub">能登・珠洲を、走る。集める。思い出にする。</span>
+    </div>
+  </div>
+  <!-- いま開いているのが新しいものかを、見ただけで判別できるようにしておく -->
+  <span id="ver" class="ver" title="いま開いている版"></span>
+</header>
+
+<nav class="tabs">
+  <button class="tab is-active" data-view="map">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4 3 6.5v14L9 18l6 2.5 6-2.5v-14L15 6.5 9 4Zm0 0v14m6-11.5V21" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+    <span>MAP</span>
+  </button>
+  <button class="tab" data-view="book">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5v-15ZM4 20.5A2.5 2.5 0 0 1 6.5 18H20v3H6.5A2.5 2.5 0 0 1 4 20.5Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+    <span>BOOK</span>
+  </button>
+  <button class="tab" data-view="gacha">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="7.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M4.6 13h14.8M12 2.5v3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+    <span>GACHA</span>
+  </button>
+  <button class="tab" data-view="garage">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 13.5 5 8a2 2 0 0 1 1.9-1.4h10.2A2 2 0 0 1 19 8l2 5.5m-18 0V18h3v-2.2h10V18h3v-4.5m-18 0h18M6.5 16h.01M17.5 16h.01" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/></svg>
+    <span>GARAGE</span>
+  </button>
+</nav>
+
+<main>
+  <!-- ========== MAP ========== -->
+  <section id="view-map" class="view is-active">
+    <div id="map"></div>
+
+    <div class="rate">
+      <svg class="rate-ring" viewBox="0 0 44 44" aria-hidden="true">
+        <circle cx="22" cy="22" r="18" fill="none" stroke="#dde9f2" stroke-width="6"/>
+        <circle id="rate-arc" cx="22" cy="22" r="18" fill="none" stroke="#2b8cd8" stroke-width="6"
+                stroke-linecap="round" transform="rotate(-90 22 22)"
+                stroke-dasharray="0 113" stroke-dashoffset="0"/>
+      </svg>
+      <div class="rate-text">
+        <span class="rate-label">探索率</span>
+        <strong id="rate-pct">0<small>%</small></strong>
+        <span class="rate-sub">訪れたスポット <span id="rate-n">0 / 10</span></span>
+      </div>
+    </div>
+
+    <div id="gps" class="gps">位置情報を確認中…</div>
+
+    <div class="dev">
+      <button id="btn-fog" class="dev-btn">霧を晴らす</button>
+      <button id="btn-reset" class="dev-btn">記録を消す</button>
+    </div>
+
+    <button id="btn-locate" class="fab" title="現在地へ">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m21 3-9 18-2-7-7-2 18-9Z" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/></svg>
+    </button>
+
+    <!-- 近くにスポットがあるとき -->
+    <div id="sheet" class="sheet" hidden>
+      <div class="card sheet-card">
+        <div class="sheet-head">
+          <div>
+            <span id="sheet-cat" class="chip"></span>
+            <span id="sheet-name" class="sheet-name"></span>
+          </div>
+          <span id="sheet-dist" class="sheet-dist"></span>
+        </div>
+        <p id="sheet-desc" class="sheet-desc"></p>
+        <div class="sheet-actions">
+          <button id="btn-checkin" class="btn btn-primary">チェックイン</button>
+          <a id="btn-route" class="btn btn-link" target="_blank" rel="noopener noreferrer">行き方</a>
+          <button id="btn-photo" class="btn" hidden>写真を撮る</button>
+          <button id="btn-photo-del" class="btn btn-quiet" hidden>写真を削除</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 近くに何もないとき -->
+    <div id="next" class="next" hidden>
+      <button class="card next-card" id="next-card">
+        <span class="next-thumb" id="next-thumb"></span>
+        <span class="next-text">
+          <small>次の発見</small>
+          <strong id="next-name"></strong>
+        </span>
+        <svg class="next-go" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
+  </section>
+
+  <!-- ========== BOOK ========== -->
+  <section id="view-book" class="view">
+    <div class="book-head">
+      <h2>珠洲図鑑</h2>
+      <span id="book-count" class="book-count">発見 0 / 10</span>
+    </div>
+    <div id="chips" class="chips"></div>
+    <div id="book" class="book"></div>
+
+    <section class="card panel">
+      <h3>記録の持ち出し</h3>
+      <p>記録はこの端末の中だけにあります。端末やブラウザを変えると消えます。
+         ファイルに書き出してクラウドドライブ等へ保存しておけば、別の端末で戻せます。</p>
+      <div class="panel-actions">
+        <button id="btn-export" class="btn">記録を書き出す</button>
+        <button id="btn-import" class="btn">記録を読み込む</button>
+      </div>
+      <p id="usage" class="note"></p>
+      <p id="sw-status" class="note"></p>
+    </section>
+
+    <!-- CCライセンスの写真を使っているため、出典の表示は公開するうえでの条件 -->
+    <section class="card panel">
+      <h3>このアプリについて</h3>
+      <p class="disclaim"><strong>珠洲市の公式サービスではありません。</strong>
+         何が作れるかを確かめるために個人が作った、検証用のプロトタイプです。
+         掲載内容は正確でない場合があります。</p>
+      <details class="credits">
+        <summary>写真の出典・ライセンス</summary>
+        <ul id="credits-list" class="credits-list"></ul>
+      </details>
+    </section>
+  </section>
+
+  <!-- ========== GACHA ========== -->
+  <section id="view-gacha" class="view">
+    <div class="gacha-hero">
+      <span class="coin-badge">所持コイン <strong id="coins">0</strong> 枚</span>
+      <h2 class="gacha-title">SUZU GACHA</h2>
+      <p class="gacha-copy">新しい出会いが待っています！</p>
+
+      <div class="capsule" id="capsule">
+        <svg viewBox="0 0 120 120" aria-hidden="true">
+          <defs>
+            <radialGradient id="cap-g" cx="38%" cy="32%" r="72%">
+              <stop offset="0" stop-color="#ffffff"/>
+              <stop offset=".45" stop-color="#8fd3f4"/>
+              <stop offset="1" stop-color="#1c6ea4"/>
+            </radialGradient>
+          </defs>
+          <circle cx="60" cy="60" r="46" fill="url(#cap-g)"/>
+          <circle cx="60" cy="60" r="46" fill="none" stroke="#ffffff" stroke-width="3" opacity=".85"/>
+          <ellipse cx="44" cy="40" rx="15" ry="9" fill="#fff" opacity=".55"/>
+          <text x="60" y="76" text-anchor="middle" font-size="38" font-weight="800" fill="#ffffff">?</text>
+        </svg>
+      </div>
+
+      <button id="btn-gacha" class="btn btn-primary gacha-btn">ガチャを回す（1枚）</button>
+      <p class="gacha-note" id="gacha-note"></p>
+    </div>
+
+    <!-- 何が当たりうるか。霧の向こうなので、ぼかしてある -->
+    <section class="card panel lineup-panel">
+      <h3>まだ見ぬ珠洲</h3>
+      <p id="lineup-note">ここにある景色が、ガチャで1つずつ晴れていきます。</p>
+      <div id="lineup" class="lineup"></div>
+    </section>
+
+    <div id="gacha-result" class="card panel" hidden>
+      <h3>新しい魅力を発見！</h3>
+      <div class="gresult">
+        <span class="gresult-thumb" id="gresult-thumb"></span>
+        <div class="gresult-text">
+          <span id="gresult-rank" class="rank-chip"></span>
+          <span id="gresult-cat" class="chip"></span>
+          <strong id="gresult-name"></strong>
+          <p id="gresult-desc"></p>
+        </div>
+      </div>
+      <div class="panel-actions">
+        <button id="btn-gacha-map" class="btn">地図で見る</button>
+      </div>
+    </div>
+
+    <section class="card panel">
+      <h3>コインの貯め方</h3>
+      <p>スポットに初めてチェックインすると <strong>3枚</strong>。
+         現地へ行くほど、未訪問のスポットを知ることができます。</p>
+      <p class="note">※ガチャで分かるのは「どこに何があるか」まで。
+         図鑑を埋めるには現地でチェックインが必要です。</p>
+    </section>
+
+    <section class="card panel">
+      <h3>レア度</h3>
+      <p>スポットの種類でレア度が変わります。レアなものほど、晴れるまでが長くなります。</p>
+      <ul class="rank-list">
+        <li><span class="rank-chip is-rare">★★★ 激レア</span><span>祭り・文化</span></li>
+        <li><span class="rank-chip is-uncommon">★★ レア</span><span>特産・グルメ</span></li>
+        <li><span class="rank-chip is-common">★ ノーマル</span><span>観光</span></li>
+      </ul>
+      <p class="note">※何をレアにするかで人の動きが変わります。この割り当て自体が検討課題です。</p>
+    </section>
+  </section>
+
+  <!-- ========== GARAGE ========== -->
+  <section id="view-garage" class="view">
+    <div class="garage-hero">
+      <p class="garage-copy">この道の、<br>つづきに出会える。</p>
+      <div class="plate">
+        <span class="plate-label">登録ナンバー</span>
+        <div class="plate-top"><span>珠洲</span><strong id="plate-cls">00</strong></div>
+        <div class="plate-row">
+          <span class="plate-dots" id="plate-dots"></span>
+          <input id="plate" class="plate-input" type="text" inputmode="numeric"
+                 maxlength="4" aria-label="登録ナンバー">
+        </div>
+      </div>
+      <p class="garage-note">プレートをタップして、4桁までの好きな番号を入れてください。<br>
+         バッジに刻まれます。上段の数字は訪れたスポット数です。</p>
+    </div>
+
+    <div class="garage-head">
+      <h2>TOURING BADGE</h2>
+      <span id="badge-count" class="book-count">獲得 0 / 3</span>
+    </div>
+    <div id="badges" class="badges"></div>
+
+    <section class="card panel">
+      <h3>バッジを見せる</h3>
+      <p>いま持っているいちばん上のバッジを、1枚の画像にして保存・共有できます。</p>
+      <div class="panel-actions">
+        <button id="btn-share" class="btn btn-primary">画像にして共有</button>
+      </div>
+      <p id="share-note" class="note">※3スポット訪れるとBRONZEが出ます。</p>
+    </section>
+
+    <section class="card panel">
+      <h3>走った記録</h3>
+      <div id="garage-stats" class="stats"></div>
+    </section>
+
+    <section class="card panel exit-panel">
+      <h3>旅の記録を珠洲に残しませんか？</h3>
+      <p>あなたの旅の記録を送信すると、特別な特典に応募できます。
+         珠洲のイベント情報や新スポットのご案内もお届けします。</p>
+      <div class="panel-actions">
+        <button id="btn-exit" class="btn btn-primary">つながる</button>
+      </div>
+      <p class="note">※この先は準備中です。</p>
+    </section>
+  </section>
+</main>
+
+<div id="modal" class="modal" hidden>
+  <div class="modal-box">
+    <div class="modal-sign">🚧</div>
+    <h3>準備中です</h3>
+    <p>連絡先の登録は、このアプリでは行いません。
+       市が使っている<strong>別のシステムへ移動して登録</strong>していただく予定です。</p>
+    <p class="note">遷移先のシステムはまだ決まっていないため、この先はつながっていません。
+       周遊データの引き継ぎ方、ログインの要否、写真を送れるかが、これから決めることです。</p>
+    <button id="modal-close" class="btn btn-primary">閉じる</button>
+  </div>
+</div>
+
+<!-- ガチャの演出。霧の向こうにある写真が、渦を巻いて晴れて見えてくる -->
+<div id="play" class="play" hidden>
+  <div id="play-photo" class="play-photo"></div>
+  <div class="play-veil" id="play-veil">
+    <div class="play-clouds"></div>
+    <div class="play-clouds play-clouds-b"></div>
+  </div>
+  <div class="play-glow" id="play-glow"></div>
+  <div class="play-swirl" id="play-swirl"></div>
+  <div class="play-flash" id="play-flash"></div>
+
+  <p class="play-say" id="play-say"></p>
+
+  <div class="play-card" id="play-card">
+    <span class="rank-chip" id="play-rank"></span>
+    <strong class="play-name" id="play-name"></strong>
+    <span class="play-area" id="play-area"></span>
+    <p class="play-desc" id="play-desc"></p>
+    <div class="play-actions">
+      <button type="button" id="play-again" class="btn btn-primary">もう1回</button>
+      <button type="button" id="play-map" class="btn">地図で見る</button>
+    </div>
+    <button type="button" id="play-close" class="btn btn-quiet play-close">閉じる</button>
+  </div>
+
+  <p class="play-skip" id="play-skip">タップでとばす</p>
+</div>
+
+<div id="install" class="install" hidden>
+  <div class="install-text">
+    <strong>ホーム画面に追加できます</strong>
+    <p id="install-how"></p>
+  </div>
+  <div class="install-btns">
+    <button id="install-go" class="btn btn-primary btn-sm" hidden>追加</button>
+    <button id="install-close" class="btn btn-sm">閉じる</button>
+  </div>
+</div>
+
+<input type="file" id="file" accept="image/*" capture="environment" hidden>
+<input type="file" id="import-file" accept="application/json,.json" hidden>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH"
+        crossorigin="anonymous"></script>
+<script src="spots.js"></script>
+<script src="store.js"></script>
+<script src="badge.js"></script>
+<script src="backup.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

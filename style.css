@@ -1,0 +1,708 @@
+/* MY SUZU ROAD BOOK ― 配色とレイアウトは第4回MTG資料 p9〜p12 に合わせている。
+   白とスカイブルーを基調に、カードは角丸＋やわらかい影。 */
+
+:root {
+  --bg:        #f1f7fb;   /* 画面の地。能登の空 */
+  --surface:   #ffffff;
+  --ink:       #16314a;   /* 文字。濃紺 */
+  --ink-dim:   #5e7a93;
+  --ink-faint: #93a9bc;
+  --line:      #dce7f0;
+
+  --brand:     #0e6e9e;   /* ロゴ・見出し */
+  --brand-2:   #2b8cd8;   /* 主要ボタン・アクセント */
+  --brand-pale:#e8f2f9;
+
+  --cat-spot:   #2b8cd8;
+  --cat-food:   #ef8b3c;
+  --cat-local:  #2fa37a;
+  --cat-culture:#8b6bd9;
+  --cat-fest:   #e3576f;
+
+  --head: 56px;
+  --tabs: 48px;
+  --safe:     env(safe-area-inset-bottom, 0px);
+  --safe-top: env(safe-area-inset-top, 0px);
+
+  --r-s: 10px;
+  --r-m: 14px;
+  --r-l: 18px;
+  --shadow:   0 2px 10px rgba(22,49,74,.08);
+  --shadow-up:0 -3px 18px rgba(22,49,74,.12);
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+[hidden] { display: none !important; }
+
+html, body {
+  margin: 0; height: 100%; overflow: hidden;
+  background: var(--bg); color: var(--ink);
+  font-family: -apple-system, BlinkMacSystemFont, "Hiragino Kaku Gothic ProN",
+               "Yu Gothic", "Meiryo", sans-serif;
+  -webkit-text-size-adjust: 100%;
+}
+
+/* ---------- ヘッダー ---------- */
+
+.bar {
+  position: fixed; inset: 0 0 auto 0; z-index: 1000;
+  height: calc(var(--head) + var(--safe-top)); padding: var(--safe-top) 14px 0;
+  display: flex; align-items: center;
+  background: var(--surface); border-bottom: 1px solid var(--line);
+}
+.brand { display: flex; align-items: center; gap: 9px; min-width: 0; }
+/* いま開いているのが新しいものかを、見ただけで判別するための版表示 */
+.ver {
+  margin-left: auto; flex: 0 0 auto;
+  font-size: 10px; font-weight: 700; letter-spacing: .06em;
+  color: var(--ink-dim); background: #eef3f8;
+  padding: 2px 7px; border-radius: 999px;
+}
+.brand-mark { width: 32px; height: 32px; flex: 0 0 auto; }
+.brand-text { min-width: 0; }
+.brand-main {
+  display: block; font-size: 14.5px; font-weight: 800; letter-spacing: .055em;
+  color: var(--brand); white-space: nowrap;
+}
+.brand-sub {
+  display: block; font-size: 10px; color: var(--ink-dim); margin-top: 1px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+/* ---------- タブ（セグメント） ---------- */
+
+.tabs {
+  position: fixed; left: 0; right: 0; z-index: 1000;
+  top: calc(var(--head) + var(--safe-top));
+  height: var(--tabs); padding: 6px 8px;
+  display: flex; gap: 5px;
+  background: var(--surface); border-bottom: 1px solid var(--line);
+}
+.tab {
+  flex: 1; min-width: 0;
+  display: flex; align-items: center; justify-content: center; gap: 4px;
+  border: 0; border-radius: 999px; background: var(--brand-pale); color: var(--brand);
+  font-family: inherit; font-size: 10px; font-weight: 700; letter-spacing: .04em;
+  cursor: pointer;
+}
+.tab svg { width: 13px; height: 13px; flex: 0 0 auto; }
+.tab span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tab.is-active { background: var(--brand-2); color: #fff; box-shadow: 0 2px 8px rgba(43,140,216,.35); }
+
+/* ---------- ビュー ---------- */
+
+main {
+  position: fixed;
+  inset: calc(var(--head) + var(--safe-top) + var(--tabs)) 0 0 0;
+}
+.view { position: absolute; inset: 0; display: none; }
+.view.is-active { display: block; }
+
+#map { position: absolute; inset: 0; background: #cfe3ef; }
+.leaflet-container { background: #cfe3ef; font: inherit; }
+.leaflet-control-attribution {
+  background: rgba(255,255,255,.82) !important; color: var(--ink-faint) !important;
+  font-size: 9px !important;
+}
+.leaflet-control-attribution a { color: var(--ink-dim) !important; }
+
+/* 霧。未訪問の地域は雲がかかって見えない（資料p9） */
+.fog { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+
+/* ---------- ガチャの演出「霧が晴れる」 ----------
+   画面いっぱいに広げる。霧の向こうに当たったスポットの写真があり、
+   渦を巻いて晴れると写真が見えてくる。--rv にレア度の色が入る。 */
+
+.play {
+  position: fixed; inset: 0; z-index: 2000; overflow: hidden;
+  --rv: #5bb0e5; --hole: 0px; --feather: 0px;
+  background: #0e3b5a;
+}
+.play[hidden] { display: none; }
+
+/* 当たったスポットの写真。霧の裏で、ゆっくり寄っていく */
+.play-photo {
+  position: absolute; inset: 0; background: #0e3b5a center/cover no-repeat;
+  transform: scale(1.14); transition: transform 5s linear;
+}
+.play.is-on .play-photo { transform: scale(1.0); }
+
+/* 霧。穴は JS が --hole を動かして広げる */
+.play-veil {
+  position: absolute; inset: 0; background: #b9d2e4;
+  /* --feather を 0 にしておかないと、穴が0でも中央が透けてしまう */
+  -webkit-mask-image: radial-gradient(circle at 50% 44%,
+            transparent var(--hole), #000 calc(var(--hole) + var(--feather)));
+          mask-image: radial-gradient(circle at 50% 44%,
+            transparent var(--hole), #000 calc(var(--hole) + var(--feather)));
+}
+/* 流れる雲。これがないと「止まっている絵」に見えて、何が起きているか分からない */
+.play-clouds {
+  position: absolute; top: -20%; left: -40%; width: 180%; height: 140%;
+  background:
+    radial-gradient(38% 30% at 22% 28%, rgba(255,255,255,.95), transparent 68%),
+    radial-gradient(32% 26% at 58% 52%, rgba(255,255,255,.85), transparent 70%),
+    radial-gradient(42% 24% at 86% 24%, rgba(255,255,255,.75), transparent 70%),
+    radial-gradient(30% 22% at 40% 82%, rgba(255,255,255,.8), transparent 70%);
+  animation: play-drift 13s linear infinite;
+}
+.play-clouds-b {
+  background:
+    radial-gradient(34% 28% at 70% 18%, rgba(167,199,222,.85), transparent 70%),
+    radial-gradient(30% 22% at 30% 62%, rgba(167,199,222,.75), transparent 70%),
+    radial-gradient(36% 26% at 12% 90%, rgba(167,199,222,.7), transparent 70%);
+  animation: play-drift-b 9s linear infinite;
+}
+@keyframes play-drift {
+  0% { transform: translate3d(0,0,0); } 100% { transform: translate3d(14%, -4%, 0); }
+}
+@keyframes play-drift-b {
+  0% { transform: translate3d(6%, 2%, 0); } 100% { transform: translate3d(-10%, -3%, 0); }
+}
+
+/* 霧の中で脈を打つ光。レア度の色で、強さが増していく */
+.play-glow {
+  position: absolute; left: 50%; top: 44%; width: 150px; height: 150px;
+  border-radius: 50%; opacity: 0; pointer-events: none;
+  transform: translate(-50%, -50%) scale(.35);
+  background:
+    radial-gradient(circle closest-side, #ffffff 0%, rgba(255,255,255,0) 30%),
+    radial-gradient(circle closest-side, var(--rv) 0%, var(--rv) 12%, transparent 72%);
+}
+
+/* 晴れ際の渦 */
+.play-swirl {
+  position: absolute; left: 50%; top: 44%; width: 0; height: 0;
+  border-radius: 50%; opacity: 0; pointer-events: none;
+  transform: translate(-50%, -50%);
+  background: conic-gradient(from 0deg,
+    rgba(255,255,255,0) 0deg, rgba(255,255,255,.8) 50deg, rgba(255,255,255,0) 120deg,
+    rgba(255,255,255,0) 180deg, rgba(255,255,255,.6) 230deg, rgba(255,255,255,0) 300deg);
+  -webkit-mask-image: radial-gradient(closest-side, transparent 52%, #000 68%, #000 94%, transparent 100%);
+          mask-image: radial-gradient(closest-side, transparent 52%, #000 68%, #000 94%, transparent 100%);
+}
+.play.is-burst .play-swirl { animation: play-swirl 1s linear infinite; }
+@keyframes play-swirl { to { transform: translate(-50%, -50%) rotate(360deg); } }
+
+.play-flash { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; }
+.play.is-burst .play-flash { animation: play-flash .55s ease-out; }
+@keyframes play-flash { 0% { opacity: 0; } 10% { opacity: .9; } 100% { opacity: 0; } }
+
+/* いま何が起きているかを言葉でも出す */
+.play-say {
+  position: absolute; left: 0; right: 0; top: calc(var(--safe-top) + 26px); margin: 0;
+  text-align: center; font-size: 14px; font-weight: 700; color: #16314a;
+  text-shadow: 0 1px 10px rgba(255,255,255,.9); transition: opacity .3s ease, color .5s ease;
+}
+/* 写真の上にのるので、明るい写真でも読めるように帯を敷く */
+.play.is-done .play-say {
+  left: 50%; right: auto; transform: translateX(-50%); white-space: nowrap;
+  padding: 7px 18px; border-radius: 999px;
+  color: #fff; text-shadow: none; background: rgba(14,44,70,.55);
+  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+}
+
+/* 結果。写真の上にのせる */
+.play-card {
+  position: absolute; left: 50%; bottom: calc(var(--safe) + 22px);
+  transform: translate(-50%, 20px);
+  width: min(340px, calc(100% - 28px)); box-sizing: border-box;
+  padding: 16px 18px 14px; border-radius: var(--r-l);
+  background: rgba(255,255,255,.96); box-shadow: 0 12px 34px rgba(10,30,50,.35);
+  text-align: center; opacity: 0; pointer-events: none;
+  transition: opacity .45s ease, transform .45s cubic-bezier(.2,.9,.3,1.25);
+}
+.play.is-done .play-card { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
+.play-name { display: block; margin-top: 9px; font-size: 22px; font-weight: 800; line-height: 1.3; }
+.play-area { display: block; margin-top: 3px; font-size: 11px; color: var(--ink-dim); }
+.play-desc {
+  margin: 9px 0 0; font-size: 11.5px; line-height: 1.7; color: var(--ink-dim); text-align: left;
+}
+.play-actions { display: flex; gap: 8px; margin-top: 14px; }
+.play-actions .btn { flex: 1; }
+.play-close { width: 100%; margin-top: 4px; }
+
+.play-skip {
+  position: absolute; left: 0; right: 0; bottom: calc(var(--safe) + 16px); margin: 0;
+  text-align: center; font-size: 10.5px; color: rgba(22,49,74,.55); pointer-events: none;
+}
+.play.is-done .play-skip { display: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .play-clouds, .play.is-burst .play-swirl, .play.is-burst .play-flash { animation: none; }
+  .play-photo, .play-card { transition: opacity .2s ease; }
+}
+
+/* ---------- 探索率 ---------- */
+
+.rate {
+  position: absolute; top: 10px; left: 10px; z-index: 600;
+  display: flex; align-items: center; gap: 9px;
+  padding: 8px 13px 8px 9px; border-radius: var(--r-m);
+  background: rgba(255,255,255,.95); box-shadow: var(--shadow);
+}
+.rate-ring { width: 42px; height: 42px; flex: 0 0 auto; }
+.rate-text { line-height: 1.25; }
+.rate-label { display: block; font-size: 9.5px; color: var(--ink-dim); }
+.rate-text strong { font-size: 21px; font-weight: 800; color: var(--ink); }
+.rate-text strong small { font-size: 11px; font-weight: 700; margin-left: 1px; }
+.rate-sub { display: block; font-size: 9.5px; color: var(--ink-dim); }
+
+/* ---------- 位置情報の状態 ---------- */
+
+.gps {
+  position: absolute; top: 72px; left: 10px; z-index: 600;
+  max-width: calc(100% - 20px);
+  padding: 6px 10px; border-radius: var(--r-s);
+  font-size: 10.5px; line-height: 1.45;
+  background: rgba(255,255,255,.95); color: var(--ink-dim); box-shadow: var(--shadow);
+}
+.gps.is-mock { color: #9a6410; background: #fff6e6; }
+.gps.is-live { color: #11704f; background: #e9f7f1; }
+.gps small { color: inherit; opacity: .85; }
+.gps.can-tap { cursor: pointer; }
+
+/* ---------- 検証用（プロトタイプにだけ置くもの） ---------- */
+
+.dev {
+  position: absolute; top: 10px; right: 10px; z-index: 600;
+  display: flex; flex-direction: column; align-items: flex-end; gap: 6px;
+}
+.dev-btn {
+  padding: 5px 9px; border-radius: var(--r-s); font-size: 10.5px; font-family: inherit;
+  background: rgba(255,255,255,.95); border: 1px solid var(--line); color: var(--ink-dim);
+  box-shadow: var(--shadow); cursor: pointer;
+}
+.dev-btn.is-on { color: var(--brand-2); border-color: var(--brand-2); }
+
+/* ---------- 現在地ボタン ---------- */
+
+.fab {
+  position: absolute; right: 12px; z-index: 650;
+  bottom: calc(var(--safe) + 14px + var(--bottom-h, 0px));
+  width: 46px; height: 46px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: var(--surface); color: var(--brand-2);
+  border: 0; box-shadow: 0 3px 12px rgba(22,49,74,.2); cursor: pointer;
+}
+.fab svg { width: 21px; height: 21px; }
+
+/* ---------- ピン ---------- */
+
+.pin { display: grid; place-items: center; }
+.pin-card {
+  position: relative;
+  width: 54px; height: 54px; border-radius: var(--r-m); overflow: hidden;
+  border: 3px solid #fff; background: #fff center/cover no-repeat;
+  box-shadow: 0 3px 10px rgba(22,49,74,.3);
+}
+/* ガチャで知ったが、まだ行っていない */
+.pin-card.is-known { border-color: var(--brand-2); }
+.pin-flag {
+  position: absolute; left: 0; right: 0; bottom: 0; padding: 1px 0;
+  font-size: 8px; font-weight: 700; text-align: center;
+  background: var(--brand-2); color: #fff;
+}
+.pin-lock {
+  width: 38px; height: 38px; border-radius: var(--r-s);
+  display: grid; place-items: center;
+  background: rgba(255,255,255,.92); border: 2px solid #fff;
+  box-shadow: 0 2px 8px rgba(22,49,74,.22);
+  font-size: 15px; color: var(--ink-faint);
+}
+.pin-tail {
+  width: 0; height: 0; margin-top: -2px;
+  border-left: 6px solid transparent; border-right: 6px solid transparent;
+  border-top: 7px solid #fff;
+  filter: drop-shadow(0 2px 2px rgba(22,49,74,.2));
+}
+.pin-label {
+  margin-top: 2px; padding: 1px 6px; border-radius: 4px; white-space: nowrap;
+  font-size: 10px; font-weight: 700; color: var(--ink);
+  background: rgba(255,255,255,.9); box-shadow: 0 1px 4px rgba(22,49,74,.14);
+}
+.z-far .pin-label { display: none; }
+.me {
+  width: 16px; height: 16px; border-radius: 50%; background: var(--brand-2);
+  border: 3px solid #fff; box-shadow: 0 0 0 6px rgba(43,140,216,.22), 0 2px 6px rgba(22,49,74,.3);
+}
+
+/* ---------- カード共通 ---------- */
+
+.card {
+  background: var(--surface); border-radius: var(--r-l);
+  box-shadow: var(--shadow); border: 1px solid var(--line);
+}
+
+.btn {
+  flex: 1; padding: 11px 12px; border-radius: var(--r-s);
+  font-size: 13.5px; font-weight: 700; font-family: inherit;
+  background: var(--surface); color: var(--brand);
+  border: 1px solid var(--line); cursor: pointer;
+}
+.btn-primary { background: var(--brand-2); color: #fff; border-color: var(--brand-2); }
+.btn-quiet { flex: 0 0 auto; color: var(--ink-dim); font-weight: 600; }
+.btn-sm { flex: 0 0 auto; padding: 7px 13px; font-size: 11.5px; }
+.btn:disabled { opacity: .45; }
+.disclaim { border-left: 3px solid var(--brand-2); padding-left: 9px; }
+.credits summary {
+  cursor: pointer; font-size: 12px; font-weight: 700; color: var(--brand);
+  padding: 6px 0;
+}
+.credits-list {
+  margin: 4px 0 0; padding-left: 16px;
+  font-size: 10.5px; line-height: 1.75; color: var(--ink-dim);
+}
+.credits-list li { margin-bottom: 5px; word-break: break-word; }
+.credits-list strong { color: var(--ink); }
+.credits-list a { color: var(--brand-2); margin-left: 3px; }
+
+.bcard[data-spot] { cursor: pointer; }
+.bcard-go {
+  display: block; margin-top: 4px; font-size: 10px; font-weight: 700;
+  color: var(--brand-2);
+}
+/* 地図アプリを開くためのリンク。ボタンと同じ見た目に揃える */
+.btn-link {
+  display: inline-flex; align-items: center; justify-content: center;
+  gap: 5px; text-decoration: none; text-align: center;
+}
+
+.chip {
+  display: inline-block; padding: 2px 8px; border-radius: 999px;
+  font-size: 10px; font-weight: 700; color: #fff; vertical-align: middle;
+}
+.chip.cat-spot    { background: var(--cat-spot); }
+.chip.cat-food    { background: var(--cat-food); }
+.chip.cat-local   { background: var(--cat-local); }
+.chip.cat-culture { background: var(--cat-culture); }
+.chip.cat-fest    { background: var(--cat-fest); }
+
+/* ---------- 下部シート ---------- */
+
+.sheet {
+  position: absolute; inset: auto 0 0 0; z-index: 700;
+  padding: 10px 10px calc(10px + var(--safe));
+}
+.sheet-card { padding: 13px 15px; box-shadow: var(--shadow-up); }
+.sheet-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.sheet-name { font-size: 16px; font-weight: 800; margin-left: 6px; }
+.sheet-dist {
+  font-size: 12.5px; font-weight: 700; color: var(--brand-2); white-space: nowrap;
+}
+.sheet-desc { margin: 7px 0 11px; font-size: 12px; line-height: 1.65; color: var(--ink-dim); }
+.sheet-actions { display: flex; gap: 8px; }
+
+/* ---------- 次の発見 ---------- */
+
+.next {
+  position: absolute; inset: auto 0 0 0; z-index: 700;
+  padding: 10px 10px calc(10px + var(--safe));
+}
+.next-card {
+  width: 100%; display: flex; align-items: center; gap: 11px;
+  padding: 10px 12px; box-shadow: var(--shadow-up);
+  font-family: inherit; text-align: left; cursor: pointer;
+}
+.next-thumb {
+  width: 46px; height: 46px; border-radius: var(--r-s); flex: 0 0 auto;
+  background: var(--brand-pale) center/cover no-repeat;
+}
+.next-text { flex: 1; min-width: 0; }
+.next-text small { display: block; font-size: 10px; color: var(--ink-dim); }
+.next-text strong {
+  display: block; font-size: 14px; font-weight: 700; color: var(--ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.next-go { width: 20px; height: 20px; color: var(--ink-faint); flex: 0 0 auto; }
+
+/* ---------- BOOK ---------- */
+
+#view-book, #view-garage { overflow-y: auto; -webkit-overflow-scrolling: touch; }
+
+/* 見出しにも珠洲の景色を敷く（資料p9〜p12の全体の雰囲気に寄せる） */
+.book-head, .garage-head {
+  position: relative; overflow: hidden;
+  display: flex; align-items: baseline; justify-content: space-between;
+  padding: 18px 14px 14px; margin: 0 0 10px;
+}
+.book-head::before, .garage-head::before {
+  content: ''; position: absolute; inset: 0;
+  background: url('img/gojiraiwa.jpg') center 62%/cover no-repeat;
+}
+.garage-head::before { background-image: url('img/suzumisaki.jpg'); background-position: center 55%; }
+.book-head::after, .garage-head::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(100deg, rgba(10,47,78,.82) 0%, rgba(14,110,158,.68) 100%);
+}
+.book-head > *, .garage-head > * { position: relative; z-index: 1; }
+.book-head h2, .garage-head h2 {
+  margin: 0; font-size: 16px; font-weight: 800; color: #fff;
+  text-shadow: 0 1px 8px rgba(10,30,50,.5);
+}
+.garage-head h2 { font-size: 12.5px; letter-spacing: .12em; }
+.book-count { font-size: 11.5px; font-weight: 700; color: rgba(255,255,255,.92); }
+
+.chips {
+  display: flex; gap: 6px; padding: 0 14px 10px;
+  overflow-x: auto; -webkit-overflow-scrolling: touch;
+}
+.chips::-webkit-scrollbar { display: none; }
+.chip-btn {
+  flex: 0 0 auto; padding: 6px 13px; border-radius: 999px;
+  font-size: 11.5px; font-weight: 700; font-family: inherit;
+  background: var(--surface); color: var(--ink-dim);
+  border: 1px solid var(--line); cursor: pointer;
+}
+.chip-btn.is-on { background: var(--brand-2); color: #fff; border-color: var(--brand-2); }
+
+.book {
+  display: grid; grid-template-columns: repeat(2, 1fr); gap: 11px;
+  padding: 0 14px 20px;
+}
+.bcard { position: relative; border-radius: var(--r-m); overflow: hidden;
+         background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow); }
+.bcard-img { aspect-ratio: 4 / 3; background: var(--brand-pale) center/cover no-repeat; position: relative; }
+.bcard.is-locked .bcard-img { filter: grayscale(1) brightness(1.08) contrast(.85) blur(2px); }
+.bcard-lock {
+  position: absolute; top: 0; left: 0; right: 0; aspect-ratio: 4 / 3;
+  display: grid; place-items: center; font-size: 22px; color: rgba(22,49,74,.4);
+}
+.bcard-own {
+  position: absolute; right: 6px; bottom: 6px; padding: 2px 6px; border-radius: 4px;
+  font-size: 9px; font-weight: 700; background: rgba(255,255,255,.92); color: var(--brand);
+}
+.bcard-meta { padding: 8px 9px 10px; }
+.bcard-name { font-size: 12.5px; font-weight: 700; }
+.bcard.is-locked .bcard-name { color: var(--ink-faint); }
+/* ガチャで知った＝写真と名前は見えるが、まだ訪れていない */
+.bcard.is-known { border-color: var(--brand-2); }
+.bcard.is-known .bcard-date { color: var(--brand-2); font-weight: 700; }
+.bcard-row { display: flex; align-items: center; gap: 6px; margin-top: 5px; }
+.bcard-date { font-size: 9.5px; color: var(--ink-dim); }
+
+/* ---------- パネル ---------- */
+
+.panel { margin: 4px 14px 24px; padding: 15px; }
+.panel h3 { margin: 0 0 7px; font-size: 13px; font-weight: 800; color: var(--brand); }
+.panel p { margin: 0; font-size: 11.5px; line-height: 1.7; color: var(--ink-dim); }
+.panel-actions { display: flex; gap: 8px; margin-top: 12px; }
+.note { margin-top: 9px !important; font-size: 10px !important; color: var(--ink-faint) !important; }
+
+/* ---------- GARAGE ---------- */
+
+.garage-hero {
+  position: relative; overflow: hidden;
+  margin: 4px 14px 4px; padding: 20px 16px 18px; border-radius: var(--r-l);
+  background: #0e3b5a; text-align: center; box-shadow: var(--shadow);
+}
+.garage-hero::before {
+  content: ''; position: absolute; inset: 0;
+  background: url('img/rokugozaki.jpg') center 45%/cover no-repeat;
+}
+.garage-hero::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(170deg, rgba(10,47,78,.55) 0%, rgba(14,110,158,.68) 100%);
+}
+.garage-hero > * { position: relative; z-index: 1; }
+.garage-copy {
+  margin: 0 0 14px; font-size: 13px; line-height: 1.7; font-weight: 700; color: #fff;
+  text-shadow: 0 1px 10px rgba(10,30,50,.55);
+}
+.plate {
+  display: inline-block; padding: 9px 18px 11px; border-radius: var(--r-m);
+  background: var(--surface); border: 2px solid var(--brand); box-shadow: var(--shadow);
+}
+.plate-label {
+  display: block; font-size: 9.5px; color: var(--ink-dim); margin-bottom: 3px;
+  letter-spacing: .08em;
+}
+.plate-top {
+  display: flex; align-items: baseline; justify-content: center; gap: 8px;
+  font-size: 13px; font-weight: 700; color: #2a3a46; letter-spacing: .1em;
+}
+.plate-top strong {
+  font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 15px;
+}
+/* 本物のナンバープレートと同じく4つの枠。足りないぶんは中点で埋まる。
+   枠の幅を固定してあるので、桁数が変わってもプレートの大きさは動かない */
+.plate-row {
+  display: flex; align-items: center; width: 96px; height: 40px; margin: 0 auto;
+}
+.plate-dots { display: inline-flex; flex: 0 0 auto; }
+.plate-dots i {
+  display: inline-block; width: 21px; font-style: normal; text-align: center;
+  font-size: 26px; line-height: 1; color: #93a7b6;
+}
+.plate-input {
+  flex: 1 1 auto; min-width: 0;
+  border: 0; background: transparent; text-align: left;
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: 34px; font-weight: 700; color: var(--ink); padding: 0;
+}
+.plate-input:focus { outline: 0; }
+/* 空のとき入力欄はごく細くなるので、枠そのものを光らせて入力中だと分かるようにする */
+.plate:focus-within { border-color: var(--brand-2); }
+.garage-note {
+  margin: 12px 0 0; font-size: 10.5px; color: rgba(255,255,255,.9);
+  text-shadow: 0 1px 8px rgba(10,30,50,.6);
+}
+
+.badges { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; padding: 0 10px 18px; }
+.badge { text-align: center; }
+.badge-disc { position: relative; display: block; }
+.badge-art {
+  display: block; width: 100%; height: auto;
+  filter: drop-shadow(0 3px 7px rgba(14,44,70,.28));
+}
+/* 未獲得は色を抜く。形だけは見えるので「何が待っているか」は伝わる */
+.badge.is-locked .badge-art { filter: grayscale(1) contrast(.75) opacity(.4); }
+.badge-lock {
+  position: absolute; inset: 0; display: grid; place-items: center;
+  font-size: 20px; opacity: .8;
+  filter: grayscale(1) drop-shadow(0 1px 3px rgba(255,255,255,.95));
+}
+.badge-need {
+  display: inline-block; margin-top: 6px; padding: 2px 8px; border-radius: 999px;
+  font-size: 9.5px; font-weight: 700; color: var(--ink-dim); background: #eef3f8;
+}
+.badge-need.is-got { color: #0d6b4f; background: #ddf3ea; }
+
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 4px; }
+.stat { text-align: center; }
+.stat strong { display: block; font-size: 20px; font-weight: 800; color: var(--brand); }
+.stat span { font-size: 10px; color: var(--ink-dim); }
+
+/* ---------- GACHA ---------- */
+
+#view-gacha { overflow-y: auto; -webkit-overflow-scrolling: touch; }
+/* 資料p12④ のように、珠洲の景色を背景に敷く */
+.gacha-hero {
+  position: relative; overflow: hidden;
+  margin: 14px 14px 4px; padding: 16px; border-radius: var(--r-l); text-align: center;
+  background: #0e3b5a; color: #fff; box-shadow: var(--shadow);
+}
+.gacha-hero::before {
+  content: ''; position: absolute; inset: 0;
+  background: url('img/mitsukejima.jpg') center/cover no-repeat;
+  transform: scale(1.06);
+}
+.gacha-hero::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(170deg, rgba(10,47,78,.72) 0%, rgba(14,110,158,.78) 55%, rgba(27,79,120,.88) 100%);
+}
+.gacha-hero > * { position: relative; z-index: 1; }
+.coin-badge {
+  display: inline-block; padding: 4px 12px; border-radius: 999px;
+  background: rgba(255,255,255,.2); font-size: 11px;
+}
+.coin-badge strong { font-size: 15px; margin: 0 2px; }
+.gacha-title {
+  margin: 12px 0 2px; font-size: 20px; font-weight: 800; letter-spacing: .1em;
+}
+.gacha-copy { margin: 0; font-size: 11.5px; opacity: .88; }
+.capsule { margin: 10px auto 14px; width: 132px; }
+.capsule svg { width: 100%; height: auto; filter: drop-shadow(0 6px 16px rgba(0,0,0,.28)); }
+.capsule.is-spin svg { animation: spin .7s ease-in-out; }
+@keyframes spin {
+  0% { transform: rotate(0) scale(1); } 45% { transform: rotate(-16deg) scale(1.07); }
+  75% { transform: rotate(14deg) scale(1.04); } 100% { transform: rotate(0) scale(1); }
+}
+.gacha-btn { width: 100%; background: #fff; color: var(--brand); border-color: #fff; }
+.gacha-btn:disabled { background: rgba(255,255,255,.35); color: #fff; border-color: transparent; opacity: 1; }
+.gacha-note { margin: 10px 0 0; font-size: 10.5px; opacity: .85; }
+
+.gresult { display: flex; gap: 12px; margin-top: 4px; }
+.gresult-thumb {
+  width: 84px; height: 84px; flex: 0 0 auto; border-radius: var(--r-m);
+  background: var(--brand-pale) center/cover no-repeat;
+}
+/* 今回のラインナップ。まだ見ぬ景色なので、ぼかして並べる */
+.lineup-panel { background: var(--surface); }
+.lineup {
+  display: flex; gap: 8px; margin-top: 11px;
+  overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 2px;
+}
+.lineup::-webkit-scrollbar { display: none; }
+.lineup-item {
+  position: relative; flex: 0 0 auto; width: 76px; height: 76px;
+  border-radius: var(--r-m); overflow: hidden; background: var(--brand-pale);
+}
+.lineup-item i {
+  position: absolute; inset: 0; display: block;
+  background: center/cover no-repeat;
+  filter: blur(6px) saturate(.85) brightness(1.04); transform: scale(1.25);
+}
+.lineup-item span {
+  position: absolute; inset: 0; display: grid; place-items: center;
+  font-size: 20px; font-weight: 800; color: rgba(255,255,255,.95);
+  text-shadow: 0 1px 6px rgba(22,49,74,.55);
+}
+.lineup-empty { font-size: 11.5px; color: var(--ink-dim); }
+
+.gresult-text { min-width: 0; }
+
+/* レア度の札 */
+.rank-chip {
+  display: inline-block; padding: 2px 9px; margin-right: 5px; border-radius: 999px;
+  background: var(--cat-spot); color: #fff; font-size: 10px; font-weight: 800; letter-spacing: .06em;
+}
+.rank-chip.is-common   { background: #5bb0e5; }
+.rank-chip.is-uncommon { background: #35c49a; }
+.rank-chip.is-rare     { background: #f2b705; }
+
+.rank-list { margin: 8px 0 0; padding: 0; list-style: none; }
+.rank-list li {
+  display: flex; align-items: center; gap: 10px;
+  padding: 5px 0; font-size: 12px; color: var(--ink-dim);
+}
+.rank-list .rank-chip { margin-right: 0; min-width: 84px; text-align: center; }
+.gresult-text strong { display: block; margin-top: 5px; font-size: 15px; }
+.gresult-text p { margin: 4px 0 0; font-size: 11.5px; line-height: 1.6; color: var(--ink-dim); }
+
+/* ---------- 出口導線（準備中） ---------- */
+
+.exit-panel { border-color: var(--brand-2); }
+
+.modal {
+  position: fixed; inset: 0; z-index: 3000;
+  display: grid; place-items: center; padding: 22px;
+  background: rgba(22,49,74,.45);
+}
+.modal-box {
+  width: 100%; max-width: 340px; padding: 22px 20px; border-radius: var(--r-l);
+  background: var(--surface); text-align: center; box-shadow: 0 10px 40px rgba(0,0,0,.3);
+}
+.modal-sign { font-size: 40px; line-height: 1; }
+.modal-box h3 { margin: 10px 0 10px; font-size: 16px; color: var(--brand); }
+.modal-box p { margin: 0 0 10px; font-size: 12px; line-height: 1.75; color: var(--ink-dim); text-align: left; }
+.modal-box .btn { width: 100%; margin-top: 6px; }
+
+/* ---------- ホーム画面への追加の案内 ---------- */
+
+.install {
+  position: fixed; left: 10px; right: 10px; z-index: 1500;
+  bottom: calc(var(--safe) + 10px);
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 14px; border-radius: var(--r-m);
+  background: var(--surface); border: 1px solid var(--brand-2);
+  box-shadow: 0 6px 22px rgba(22,49,74,.2);
+}
+.install-text { flex: 1; min-width: 0; }
+.install-text strong { display: block; font-size: 13px; color: var(--brand); }
+.install-text p { margin: 4px 0 0; font-size: 11px; line-height: 1.55; color: var(--ink-dim); }
+.install-btns { display: flex; flex-direction: column; gap: 6px; flex: 0 0 auto; }
+
+/* 案内が出ている間は、下のカードをその上へ逃がす */
+body.has-hint .sheet, body.has-hint .next { padding-bottom: calc(20px + var(--safe) + var(--hint-h, 0px)); }
+
+/* ---------- トースト ---------- */
+
+.toast {
+  position: fixed; left: 50%; bottom: calc(var(--safe) + 22px);
+  transform: translateX(-50%); z-index: 2000; max-width: calc(100% - 32px);
+  padding: 10px 16px; border-radius: 999px; font-size: 12.5px; font-weight: 700;
+  background: var(--ink); color: #fff; box-shadow: 0 4px 18px rgba(22,49,74,.35);
+  animation: pop .22s ease-out;
+}
+@keyframes pop { from { opacity: 0; transform: translate(-50%, 8px); } }
