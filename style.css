@@ -706,3 +706,198 @@ body.has-hint .sheet, body.has-hint .next { padding-bottom: calc(20px + var(--sa
   animation: pop .22s ease-out;
 }
 @keyframes pop { from { opacity: 0; transform: translate(-50%, 8px); } }
+
+/* ===== 起動画面 =====================================================
+   霧が晴れて珠洲が現れ、ロゴが組み上がる。
+   ガチャ・地図と同じ「霧」の言葉で始めることで、1枚目から世界観を出す。
+
+   動きは CSS の transition と遅延だけで組んである（JSは合図と中断のみ）。
+   キーフレームではなく遅延つきの transition にしてあるのは、
+   「とばす」ときに遅延を 0 にするだけで、最後の姿へ一気に送れるため。 */
+
+.boot {
+  position: fixed; inset: 0; z-index: 3000; overflow: hidden;
+  background: #0e3b5a;
+  opacity: 1; transition: opacity .45s ease;
+}
+.boot[hidden] { display: none; }
+.boot.is-out { opacity: 0; pointer-events: none; }
+
+/* 見附島は珠洲の顔だが、手元の写真が曇天で沈む。
+   起動画面は明るさと広がりが要るので、聖域の岬を使う */
+.boot-photo {
+  position: absolute; inset: 0;
+  /* 縦長の画面では横長写真が大きく切り取られる。岬が画面に残る位置に寄せる */
+  background: #0e3b5a url('img/suzumisaki.jpg') 74% 46% / cover no-repeat;
+  transform: scale(1.2);
+  transition: transform 9s linear;
+}
+.boot.is-run .boot-photo { transform: scale(1); }
+/* 中央は明るいまま残し、まわりと下だけ落とす。白いロゴを読ませるため */
+.boot-photo::after {
+  content: ''; position: absolute; inset: 0;
+  background:
+    radial-gradient(118% 68% at 50% 40%, rgba(6,28,46,.06) 0%, rgba(6,28,46,.52) 72%),
+    linear-gradient(180deg, rgba(6,28,46,.20) 0%, rgba(6,28,46,.30) 42%, rgba(6,28,46,.76) 100%);
+}
+
+/* 霧そのもの。晴れていくのが見えるように、雲を流しておく */
+.boot-veil {
+  position: absolute; inset: 0; background: #dbe8f2;
+  opacity: 1; transition: opacity 1.5s ease .25s;
+}
+.boot.is-run .boot-veil { opacity: 0; }
+.boot-clouds {
+  position: absolute; top: -20%; left: -40%; width: 180%; height: 140%;
+  background:
+    radial-gradient(38% 30% at 22% 28%, rgba(255,255,255,.95), transparent 68%),
+    radial-gradient(32% 26% at 58% 52%, rgba(255,255,255,.85), transparent 70%),
+    radial-gradient(42% 24% at 86% 24%, rgba(255,255,255,.75), transparent 70%),
+    radial-gradient(30% 22% at 40% 82%, rgba(255,255,255,.8), transparent 70%);
+  animation: play-drift 13s linear infinite;
+}
+.boot-clouds-b {
+  background:
+    radial-gradient(34% 28% at 70% 18%, rgba(167,199,222,.85), transparent 70%),
+    radial-gradient(30% 22% at 30% 62%, rgba(167,199,222,.75), transparent 70%),
+    radial-gradient(36% 26% at 12% 90%, rgba(167,199,222,.7), transparent 70%);
+  animation: play-drift-b 9s linear infinite;
+}
+
+/* 霧の奥にある光。晴れるにつれて消える */
+.boot-glow {
+  position: absolute; left: 50%; top: 42%; width: 260px; height: 260px;
+  transform: translate(-50%,-50%) scale(.5);
+  background: radial-gradient(circle closest-side, rgba(255,255,255,.95) 0%, rgba(255,255,255,0) 68%);
+  opacity: .9; transition: opacity 1.2s ease .3s, transform 1.6s ease .2s;
+}
+.boot.is-run .boot-glow { opacity: 0; transform: translate(-50%,-50%) scale(2.2); }
+
+.boot-stage {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 0 16px; text-align: center;
+}
+
+.boot-mark {
+  width: 62px; height: 62px;
+  opacity: 0; transform: scale(.55);
+  filter: drop-shadow(0 6px 16px rgba(5,25,45,.5));
+  transition: opacity .5s ease 1s, transform .65s cubic-bezier(.2,1.5,.4,1) 1s;
+}
+.boot.is-run .boot-mark { opacity: 1; transform: scale(1); }
+
+.boot-logo {
+  margin: 15px 0 0; display: flex; flex-direction: column; align-items: center; gap: 9px;
+}
+/* 上段は左右から寄ってくる */
+.boot-top {
+  display: flex; gap: 14px;
+  font-size: clamp(30px, 10.5vw, 46px); font-weight: 800; letter-spacing: .05em;
+  color: #fff; text-shadow: 0 3px 20px rgba(5,25,45,.65);
+}
+.boot-top i {
+  font-style: normal; opacity: 0;
+  transition: opacity .5s ease 1.25s, transform .7s cubic-bezier(.2,1,.3,1) 1.25s;
+}
+.boot-top i:nth-child(1) { transform: translateX(-44px); }
+.boot-top i:nth-child(2) { transform: translateX(44px); }
+.boot.is-run .boot-top i { opacity: 1; transform: none; }
+
+/* 下段はリボンに乗ってせり上がる */
+.boot-ribbon {
+  position: relative; display: block; padding: 8px 30px; border-radius: 3px;
+  background: linear-gradient(180deg, #2f9ad0 0%, #0e5e8c 100%);
+  color: #fff; font-size: clamp(15px, 5.2vw, 21px); font-weight: 800; letter-spacing: .22em;
+  box-shadow: 0 7px 22px rgba(5,25,45,.5), inset 0 1px 0 rgba(255,255,255,.35);
+  opacity: 0; transform: translateY(20px) scaleX(.55); transform-origin: 50% 100%;
+  transition: opacity .45s ease 1.55s, transform .6s cubic-bezier(.2,1.35,.4,1) 1.55s;
+}
+.boot-ribbon::before, .boot-ribbon::after {
+  content: ''; position: absolute; top: 4px; bottom: 4px; width: 13px;
+  background: #0b4c73;
+}
+.boot-ribbon::before { left: -11px; clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 38% 50%); }
+.boot-ribbon::after  { right: -11px; clip-path: polygon(0 0, 100% 0, 62% 50%, 100% 100%, 0 100%); }
+.boot.is-run .boot-ribbon { opacity: 1; transform: none; }
+
+.boot-tag {
+  margin: 18px 0 0; font-size: 12.5px; font-weight: 700; color: rgba(255,255,255,.95);
+  text-shadow: 0 2px 12px rgba(5,25,45,.7);
+  opacity: 0; transform: translateY(8px);
+  transition: opacity .5s ease 1.95s, transform .5s ease 1.95s;
+}
+.boot.is-run .boot-tag { opacity: 1; transform: none; }
+
+.boot-actions { margin-top: 30px; }
+.boot-btn {
+  position: relative; overflow: hidden;
+  padding: 15px 54px; border: 0; border-radius: 999px; font-family: inherit;
+  font-size: 17px; font-weight: 800; letter-spacing: .12em; color: #fff; cursor: pointer;
+  background: linear-gradient(180deg, #3cb0e4 0%, #1676ab 100%);
+  box-shadow: 0 9px 24px rgba(5,25,45,.5), inset 0 1px 0 rgba(255,255,255,.45);
+  opacity: 0; transform: translateY(14px) scale(.9);
+  transition: opacity .4s ease 2.15s, transform .5s cubic-bezier(.2,1.6,.4,1) 2.15s;
+}
+.boot.is-run .boot-btn {
+  opacity: 1; transform: none;
+  animation: boot-pulse 2.6s ease-in-out 2.9s infinite;
+}
+/* 光が一度だけ横切る。押せることに気づいてもらうため */
+.boot-btn::after {
+  content: ''; position: absolute; top: 0; bottom: 0; left: -60%; width: 40%;
+  background: linear-gradient(100deg, transparent, rgba(255,255,255,.55), transparent);
+  transform: skewX(-18deg);
+}
+.boot.is-run .boot-btn::after { animation: boot-shine 2.8s ease-in-out 2.6s infinite; }
+@keyframes boot-pulse {
+  0%, 100% { transform: scale(1); } 50% { transform: scale(1.045); }
+}
+@keyframes boot-shine {
+  0% { left: -60%; } 55%, 100% { left: 130%; }
+}
+
+.boot-note, .boot-skip {
+  position: absolute; left: 0; right: 0; text-align: center;
+  color: rgba(255,255,255,.8); text-shadow: 0 1px 8px rgba(5,25,45,.8);
+}
+.boot-note {
+  bottom: calc(18px + env(safe-area-inset-bottom, 0px)); font-size: 10px;
+  opacity: 0; transition: opacity .5s ease 2.3s;
+}
+.boot.is-run .boot-note { opacity: 1; }
+/* 出てから消えるので、transition ではなくキーフレームで書く。
+   ボタンが出そろったあとに残っていても、もう用がない */
+.boot-skip {
+  bottom: calc(52px + env(safe-area-inset-bottom, 0px)); font-size: 10.5px; font-weight: 700;
+  opacity: 0;
+}
+.boot.is-run .boot-skip { animation: boot-skip-hint 3.1s ease forwards; }
+.boot.is-skip .boot-skip { animation: none; opacity: 0; }
+@keyframes boot-skip-hint {
+  0% { opacity: 0; } 24% { opacity: .8; } 76% { opacity: .8; } 100% { opacity: 0; }
+}
+
+/* とばす。遅延を外して最後の姿へ一気に送る */
+.boot.is-skip .boot-photo,
+.boot.is-skip .boot-veil,
+.boot.is-skip .boot-glow,
+.boot.is-skip .boot-mark,
+.boot.is-skip .boot-top i,
+.boot.is-skip .boot-ribbon,
+.boot.is-skip .boot-tag,
+.boot.is-skip .boot-btn,
+.boot.is-skip .boot-note {
+  transition-delay: 0s; transition-duration: .2s;
+}
+.boot.is-skip .boot-btn { animation-delay: .25s; }
+.boot.is-skip .boot-btn::after { animation-delay: .25s; }
+
+/* 動きを減らす設定の端末では、最初から最後の姿で出す */
+@media (prefers-reduced-motion: reduce) {
+  .boot-photo, .boot-veil, .boot-glow, .boot-mark,
+  .boot-top i, .boot-ribbon, .boot-tag, .boot-btn, .boot-note {
+    transition: none !important;
+  }
+  .boot-clouds, .boot.is-run .boot-btn, .boot.is-run .boot-btn::after { animation: none !important; }
+}

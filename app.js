@@ -966,6 +966,39 @@ async function drawUsage() {
   }
 }
 
+/* ---------- 起動画面 ----------
+
+   動き自体はCSSが持っている。ここでやるのは3つだけ。
+   ①合図を出す（is-run）②どこを押してもとばせる（is-skip）③閉じる。 */
+
+const bootEl = $('#boot');
+
+function startBoot() {
+  // クラスを付けてから transition を効かせたいので、1フレーム待つ
+  requestAnimationFrame(() => bootEl.classList.add('is-run'));
+
+  const back = nVisited() > 0 || (state.revealed || []).length > 0;
+  $('#boot-start').textContent = back ? 'つづきから' : 'はじめる';
+
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    bootEl.classList.add('is-skip');
+  }
+}
+
+bootEl.addEventListener('click', (e) => {
+  if (e.target.closest('#boot-start')) return;   // ボタンは別扱い
+  bootEl.classList.add('is-skip');
+});
+
+$('#boot-start').addEventListener('click', () => {
+  bootEl.classList.add('is-out');
+  setTimeout(() => {
+    bootEl.hidden = true;
+    // 覆いの裏で地図を作っているので、出てきたところで寸法を取り直す
+    if (map) { map.invalidateSize(); drawFog(); }
+  }, 450);
+});
+
 /* ---------- 写真の出典 ----------
 
    CCライセンスはクレジット表示が条件なので、公開版ではアプリ内に出す必要がある。
@@ -1226,6 +1259,7 @@ async function boot() {
   if (!Array.isArray(state.revealed)) state.revealed = [];
   $('#plate').value = (state.plate || '').replace(/\D/g, '').slice(0, 4);
   refresh();            // 写真の読み込みを待たずに、まず地図を出す
+  startBoot();
   startGeo();
 
   try { await migrateOldPhotos(); } catch (e) { console.warn('移行に失敗', e); }

@@ -6,7 +6,7 @@
    ※Cache Storage は環境によっては使えない（プライベートブラウズ、容量逼迫など）。
      その場合もアプリが壊れないよう、キャッシュの失敗はすべて素通しにする。 */
 
-const VERSION  = 'v10';
+const VERSION  = 'v11';
 const SHELL    = 'srb-shell-' + VERSION;
 const TILES    = 'srb-tiles-' + VERSION;
 const TILE_MAX = 500;                // 取っておくタイルの上限
