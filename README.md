@@ -56,6 +56,10 @@ QRのページ `qr.html` は起動のたびに作り直される（gitignore 済
 
 必要なもの：Python 3（`python -m http.server` を使うだけ）、インターネット接続（地図タイルとLeafletの読み込み）。
 
+**同じWi-Fi内に配るとき、フォルダはまるごと公開されない。**
+先頭が「.」で始まる階層（`.cert/` の秘密鍵、`.git/` など）は配信しない（`safe_server.py`）。
+`python -m http.server` をそのまま使うと秘密鍵まで読めてしまうため、使っていない。
+
 **初回はWindowsファイアウォールの確認が出ることがある。** スマホから見るには「プライベートネットワーク」を許可する。許可しても、このPCのこのフォルダを同じWi-Fi内に公開するだけで、インターネットには出ない。スマホで開けないときはここを疑う。
 
 ### URLの末尾に付けられるもの（検証用）
@@ -177,7 +181,8 @@ BOOKタブの一番下に、いま効いているかどうかが出る。
 | `sw.js` | オフライン用のキャッシュ（HTTPS／localhostでのみ動く）。`VERSION` は `spots.js` の `APP_VERSION` と揃える |
 | `icons/` | アプリアイコン |
 | `起動.cmd` | ダブルクリック用。`serve.ps1` を呼ぶだけ |
-| `serve.ps1` | HTTP配信（ポート8000） |
+| `serve.ps1` / `serve_plain.py` | HTTP配信（ポート8000） |
+| `safe_server.py` | 配信するファイルの絞り込み（`.` で始まる階層を配らない） |
 | `起動_HTTPS.cmd` / `serve-https.ps1` / `serve_https.py` | HTTPS配信（ポート443）＋HTTP（80）からの転送、QRページ生成。位置情報を試すとき |
 | `img/` | スポット写真と `credits.json`（出典・ライセンス） |
 

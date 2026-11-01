@@ -33,14 +33,11 @@ if not (os.path.exists(CERT) and os.path.exists(KEY)):
     sys.exit("証明書がありません。serve-https.ps1（または 起動_HTTPS.cmd）から起動してください。")
 
 
-class Handler(http.server.SimpleHTTPRequestHandler):
-    def end_headers(self):
-        # 検証中は常に最新を読ませる
-        self.send_header("Cache-Control", "no-store")
-        super().end_headers()
+# フォルダをまるごと配らないようにする。.cert/ の秘密鍵が同じWi-Fiから読めてしまうため
+sys.path.insert(0, BASE)
+from safe_server import SafeHandler          # noqa: E402
 
-    def log_message(self, fmt, *args):
-        pass
+Handler = SafeHandler
 
 
 class Redirect(http.server.BaseHTTPRequestHandler):
