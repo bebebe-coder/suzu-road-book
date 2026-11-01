@@ -66,11 +66,17 @@ async function sha256(text) {
    そこで、数えるのに Cache API を使う。KVの書き込み枠（1日1,000回）を使わずに済む。
 
    厳密ではない（同時に来ると数え落とす／Cloudflareの拠点ごとに別勘定）。
-   それでも、素朴な連打を止めるには十分で、ここでの目的はそれ。 */
+   それでも、素朴な連打を止めるには十分で、ここでの目的はそれ。
+   実測では、1時間10回の設定で11回目から止まることを確認している。
+
+   strict を立てた窓口では、数えられなかったときに通さない。
+   書き込みを伴う確保は、数を把握できないまま通すほうが危ない。 */
 
 const COUNTER = 'https://counter.suzu-plate.invalid/';
 
-async function underLimit(key, limit, ttl) {
+const COUNTER_FAIL = Symbol('数えられなかった');
+
+async function underLimit(key, limit, ttl, strict) {
   try {
     const cache = caches.default;
     const req = new Request(COUNTER + encodeURIComponent(key));
@@ -82,7 +88,8 @@ async function underLimit(key, limit, ttl) {
     }));
     return true;
   } catch (e) {
-    return true;            // 数えられなくても窓口は開けておく
+    // 読み取りだけの窓口は通す。書き込む窓口は止める
+    return strict ? COUNTER_FAIL : true;
   }
 }
 
@@ -110,14 +117,13 @@ async function check(env, origin, url) {
 }
 
 async function claim(env, origin, req, ip) {
-  /* 確保は1回につきKVへ2回書く。書き込み枠は1日1,000回しかないので、
-     ここを無制限にすると「無料枠の上限」がそのまま攻撃対象になる。
-     全体で1日300件（＝600回の書き込み）までに抑えてある。 */
-  if (!await underLimit('claim-ip:' + ip, 10, 3600)) {
-    return reply(origin, 429, { error: '登録の回数が多すぎます。しばらくしてからお試しください' });
+  /* 相手ごとの制限は先に。ここが後ろだと、でたらめな要求で全体の枠を削れてしまう */
+  const perIp = await underLimit('claim-ip:' + ip, 10, 3600, true);
+  if (perIp === COUNTER_FAIL) {
+    return reply(origin, 503, { error: 'いま登録を受け付けられません。時間をおいてお試しください' });
   }
-  if (!await underLimit('claim-all:' + new Date().toISOString().slice(0, 10), 300, 86400)) {
-    return reply(origin, 429, { error: '本日の登録受付は上限に達しました' });
+  if (!perIp) {
+    return reply(origin, 429, { error: '登録の回数が多すぎます。しばらくしてからお試しください' });
   }
 
   let body;
@@ -135,6 +141,18 @@ async function claim(env, origin, req, ip) {
      上書きを許すと、先に持っていた人の鍵が消えて番号を奪える。 */
   if (await env.PLATES.get('plate:' + mark + n)) {
     return reply(origin, 409, { error: 'ちょうど埋まりました。もう一度お試しください', number: n });
+  }
+
+  /* 全体の枠は、実際に書き込むと決まってから数える。
+     ここが手前にあると、通らない要求（でたらめな数字・満杯の数字）でも枠が減ってしまう。
+     確保は1回につきKVへ2回書く。書き込み枠は1日1,000回なので、300件で600回。 */
+  const today = new Date().toISOString().slice(0, 10);
+  const perDay = await underLimit('claim-all:' + today, 300, 86400, true);
+  if (perDay === COUNTER_FAIL) {
+    return reply(origin, 503, { error: 'いま登録を受け付けられません。時間をおいてお試しください' });
+  }
+  if (!perDay) {
+    return reply(origin, 429, { error: '本日の登録受付は上限に達しました' });
   }
 
   const key = newKey();
@@ -181,7 +199,7 @@ export default {
 
     // 同じ相手からの連打を止める。67万件を総取りされないようにするため
     const ip = req.headers.get('CF-Connecting-IP') || 'unknown';
-    if (!await underLimit('all:' + ip, 60, 60)) {
+    if (!await underLimit('all:' + ip, 60, 60, false)) {
       return reply(origin, 429, { error: '少し時間をおいてからお試しください' });
     }
 
