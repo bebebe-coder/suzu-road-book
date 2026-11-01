@@ -914,3 +914,70 @@ body.has-hint .sheet, body.has-hint .next { padding-bottom: calc(20px + var(--sa
 .plate-mark:empty { display: none; }
 .plate-reg { margin-top: 10px; }
 .plate-reg .btn { background: rgba(255,255,255,.92); }
+
+/* ===== 図鑑の詳細 ===================================================
+   一覧のカードは小さく、写真も名前も切れてしまう。
+   「行ってみたい」と思える大きさで見せる場所として、別に開く。 */
+
+.detail {
+  position: fixed; inset: 0; z-index: 2500;
+  background: rgba(8, 28, 46, .55); backdrop-filter: blur(3px);
+  overflow-y: auto; -webkit-overflow-scrolling: touch;
+  display: flex; align-items: flex-end;
+}
+.detail[hidden] { display: none; }
+
+.detail-sheet {
+  width: 100%; background: var(--bg); border-radius: 20px 20px 0 0;
+  overflow: hidden; box-shadow: 0 -8px 30px rgba(8, 28, 46, .35);
+  animation: detail-up .28s cubic-bezier(.2, .9, .3, 1);
+}
+@keyframes detail-up { from { transform: translateY(26px); opacity: 0; } }
+
+.detail-photo {
+  position: relative; aspect-ratio: 4 / 3; min-height: 210px;
+  background: #0e3b5a center/cover no-repeat;
+  display: flex; align-items: flex-end;
+}
+.detail-photo::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(180deg, rgba(8,28,46,.30) 0%, rgba(8,28,46,0) 38%,
+                                      rgba(8,28,46,.72) 100%);
+}
+.detail-close {
+  position: absolute; top: 12px; right: 12px; z-index: 2;
+  width: 34px; height: 34px; border: 0; border-radius: 50%;
+  background: rgba(10, 30, 48, .55); color: #fff; font-size: 15px; cursor: pointer;
+  backdrop-filter: blur(4px);
+}
+.detail-own {
+  position: absolute; top: 14px; left: 14px; z-index: 2;
+  padding: 3px 9px; border-radius: 999px; font-size: 10px; font-weight: 700;
+  background: rgba(255,255,255,.92); color: var(--brand);
+}
+.detail-cap { position: relative; z-index: 1; padding: 16px 18px 15px; }
+.detail-name {
+  margin: 7px 0 2px; font-size: 23px; font-weight: 800; color: #fff;
+  text-shadow: 0 2px 12px rgba(5,25,45,.65);
+}
+.detail-area {
+  margin: 0; font-size: 12px; font-weight: 700; color: rgba(255,255,255,.92);
+  text-shadow: 0 1px 8px rgba(5,25,45,.7);
+}
+
+.detail-body { padding: 16px 18px calc(22px + env(safe-area-inset-bottom, 0px)); }
+.detail-desc { margin: 0 0 14px; font-size: 13.5px; line-height: 1.85; color: var(--ink); }
+
+.detail-rows {
+  border: 1px solid var(--line); border-radius: var(--r-m); overflow: hidden;
+  background: var(--surface);
+}
+.detail-row {
+  display: flex; justify-content: space-between; align-items: baseline; gap: 12px;
+  padding: 10px 13px; border-bottom: 1px solid var(--line); font-size: 12px;
+}
+.detail-row:last-child { border-bottom: 0; }
+.detail-row span { color: var(--ink-dim); flex: 0 0 auto; }
+.detail-row strong { color: var(--ink); text-align: right; font-weight: 700; }
+
+.detail-actions { display: flex; gap: 9px; margin-top: 14px; }

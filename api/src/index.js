@@ -152,7 +152,9 @@ async function claim(env, origin, req, ip) {
     return reply(origin, 503, { error: 'いま登録を受け付けられません。時間をおいてお試しください' });
   }
   if (!perDay) {
-    return reply(origin, 429, { error: '本日の登録受付は上限に達しました' });
+    return reply(origin, 429, {
+      error: '本日の登録受付は上限に達しました。日付が変わると再開しますので、明日お試しください'
+    });
   }
 
   const key = newKey();
@@ -166,7 +168,9 @@ async function claim(env, origin, req, ip) {
     /* KVの書き込み枠（1日1,000回）を使い切ると、ここで落ちる。
        そのまま500にすると何が起きたか分からないので、はっきり返す。
        空き確認（読み取り）は10万回／日あるので、そちらは動き続ける。 */
-    return reply(origin, 503, { error: '本日の登録受付は終了しました。明日お試しください' });
+    return reply(origin, 503, {
+      error: '本日の登録受付は終了しました。日付が変わると再開しますので、明日お試しください'
+    });
   }
 
   return reply(origin, 200, {

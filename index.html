@@ -323,6 +323,36 @@
   </div>
 </div>
 
+<!-- 図鑑の詳細。写真を大きく出して、その下に紹介・行き方・記録を並べる -->
+<div id="detail" class="detail" hidden>
+  <div class="detail-sheet">
+    <div class="detail-photo" id="detail-photo">
+      <button type="button" id="detail-close" class="detail-close" aria-label="閉じる">✕</button>
+      <span class="detail-own" id="detail-own" hidden>自分の写真</span>
+      <div class="detail-cap">
+        <span class="chip" id="detail-cat"></span>
+        <h2 class="detail-name" id="detail-name"></h2>
+        <p class="detail-area" id="detail-area"></p>
+      </div>
+    </div>
+
+    <div class="detail-body">
+      <p class="detail-desc" id="detail-desc"></p>
+
+      <div class="detail-rows" id="detail-rows"></div>
+
+      <div class="detail-actions">
+        <a id="detail-route" class="btn btn-primary btn-link" target="_blank" rel="noopener noreferrer">
+          行き方を調べる
+        </a>
+        <button type="button" id="detail-map" class="btn">地図で見る</button>
+      </div>
+
+      <p class="note" id="detail-note"></p>
+    </div>
+  </div>
+</div>
+
 <!-- ガチャの演出。霧の向こうにある写真が、渦を巻いて晴れて見えてくる -->
 <div id="play" class="play" hidden>
   <div id="play-photo" class="play-photo"></div>

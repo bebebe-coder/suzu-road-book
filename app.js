@@ -539,7 +539,68 @@ function drawBook() {
 $('#book').addEventListener('click', (e) => {
   const card = e.target.closest('.bcard[data-spot]');
   if (!card) return;
-  const s = SPOTS.filter((x) => x.id === card.dataset.spot)[0];
+  openDetail(card.dataset.spot);
+});
+
+/* ---------- 図鑑の詳細 ----------
+
+   写真を大きく出して、その下に紹介と行き方を置く。
+   一覧のカードは小さく、写真も名前も切れてしまうので、
+   「行ってみたい」と思える大きさで見せる場所が要る。 */
+
+function openDetail(id) {
+  const s = SPOTS.filter((x) => x.id === id)[0];
+  if (!s) return;
+  const v = state.visits[s.id];
+  const own = !!photoUrls[s.id];
+  const d = me ? distance(me, s) : null;
+
+  $('#detail').dataset.spot = s.id;
+  $('#detail-photo').style.backgroundImage = "url('" + imageOf(s) + "')";
+  $('#detail-own').hidden = !own;
+  $('#detail-cat').className = 'chip cat-' + s.cat;
+  $('#detail-cat').textContent = catName(s.cat);
+  $('#detail-name').textContent = s.name;
+  $('#detail-area').textContent = s.area + (s.start ? '　スタート地点' : '');
+  $('#detail-desc').textContent = s.desc;
+  $('#detail-route').href = routeUrl(s);
+
+  const rows = [
+    ['ここまで', d === null ? '現在地が分かりません' : fmtDist(d)],
+    ['状態', v ? 'チェックイン済み' : (known(s) ? 'ガチャで見つけた（未訪問）' : '未発見')]
+  ];
+  if (v) {
+    rows.push(['訪れた日', new Date(v.at).toLocaleString('ja-JP',
+      { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })]);
+  }
+  rows.push(['自分の写真', own ? 'あり' : 'まだない']);
+
+  $('#detail-rows').innerHTML = rows.map((r) => {
+    const dt = document.createElement('div');
+    dt.className = 'detail-row';
+    const k = document.createElement('span'); k.textContent = r[0];
+    const t = document.createElement('strong'); t.textContent = r[1];
+    dt.appendChild(k); dt.appendChild(t);
+    return dt.outerHTML;
+  }).join('');
+
+  $('#detail-note').textContent = v
+    ? '写真の撮り直しは、地図の詳細から行えます。'
+    : '現地で' + CHECKIN_M + 'm以内に入ると、地図の詳細からチェックインできます。';
+
+  $('#detail').hidden = false;
+  $('#detail').scrollTop = 0;
+}
+
+function closeDetail() { $('#detail').hidden = true; }
+
+$('#detail-close').addEventListener('click', closeDetail);
+$('#detail').addEventListener('click', (e) => {
+  if (e.target === $('#detail')) closeDetail();      // 外側を押したら閉じる
+});
+$('#detail-map').addEventListener('click', () => {
+  const s = SPOTS.filter((x) => x.id === $('#detail').dataset.spot)[0];
+  closeDetail();
   if (!s) return;
   showView('map');
   focusId = s.id;
@@ -885,10 +946,10 @@ $('#btn-plate').addEventListener('click', async () => {
       '窓口につながりませんでした。番号はこの端末の中だけの飾りとして、このまま使えます。';
   } else if (r.status === 409) {
     $('#plate-note').textContent =
-      'この数字は67通りすべて使われていました。別の数字でお試しください。';
-  } else if (r.status === 429) {
-    $('#plate-note').textContent = '少し時間をおいてからお試しください。';
+      (r.data && r.data.error) || 'この数字は使われていました。別の数字でお試しください。';
   } else {
+    // 混み合っているとき・受付の上限に達したときは、窓口が返す文面をそのまま出す。
+    // 「明日なら登録できる」といった、こちらで言い換えると落ちてしまう情報が入っているため
     $('#plate-note').textContent = (r.data && r.data.error) || '登録できませんでした。';
   }
 });
