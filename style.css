@@ -933,24 +933,35 @@ body.has-hint .sheet, body.has-hint .next { padding-bottom: calc(20px + var(--sa
    一覧のカードは小さく、写真も名前も切れてしまう。
    「行ってみたい」と思える大きさで見せる場所として、別に開く。 */
 
+/* 外枠はスクロールさせない。中身が画面より長いときに外枠側で送ると、
+   シートの上端（＝閉じるボタン）が画面の外へ出たまま戻せなくなる。
+   送るのはシートの中だけにして、上端は必ず画面内に残す */
 .detail {
   position: fixed; inset: 0; z-index: 2500;
   background: rgba(8, 28, 46, .55); backdrop-filter: blur(3px);
-  overflow-y: auto; -webkit-overflow-scrolling: touch;
+  overflow: hidden;
   display: flex; align-items: flex-end;
 }
 .detail[hidden] { display: none; }
 
 .detail-sheet {
   width: 100%; background: var(--bg); border-radius: 20px 20px 0 0;
-  overflow: hidden; box-shadow: 0 -8px 30px rgba(8, 28, 46, .35);
+  box-shadow: 0 -8px 30px rgba(8, 28, 46, .35);
   animation: detail-up .28s cubic-bezier(.2, .9, .3, 1);
+  /* 上端はステータスバーより下に留める。閉じるボタンがそこにあるため */
+  max-height: calc(100% - var(--safe-top) - 10px);
+  overflow-y: auto; -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
 }
 @keyframes detail-up { from { transform: translateY(26px); opacity: 0; } }
 
+/* 写真は切らずに全部見せる。
+   cover だと縦長の写真から横長の枠を切り出すことになり、主役（島や建物）が
+   枠の外へ出てしまう。枠の形を写真に合わせ、入りきらないぶんは余白にする */
 .detail-photo {
   position: relative; aspect-ratio: 4 / 3; min-height: 210px;
-  background: #0e3b5a center/cover no-repeat;
+  max-height: 58vh;
+  background: #0b2a40 center/contain no-repeat;
   display: flex; align-items: flex-end;
 }
 .detail-photo::after {
@@ -958,10 +969,11 @@ body.has-hint .sheet, body.has-hint .next { padding-bottom: calc(20px + var(--sa
   background: linear-gradient(180deg, rgba(8,28,46,.30) 0%, rgba(8,28,46,0) 38%,
                                       rgba(8,28,46,.72) 100%);
 }
+/* 指で狙う的なので44px。前は34pxで、しかも画面の外に出ることがあった */
 .detail-close {
-  position: absolute; top: 12px; right: 12px; z-index: 2;
-  width: 34px; height: 34px; border: 0; border-radius: 50%;
-  background: rgba(10, 30, 48, .55); color: #fff; font-size: 15px; cursor: pointer;
+  position: absolute; top: 10px; right: 10px; z-index: 2;
+  width: 44px; height: 44px; border: 0; border-radius: 50%;
+  background: rgba(10, 30, 48, .62); color: #fff; font-size: 17px; cursor: pointer;
   backdrop-filter: blur(4px);
 }
 .detail-own {
@@ -1005,5 +1017,6 @@ body.has-hint .sheet, body.has-hint .next { padding-bottom: calc(20px + var(--sa
 .detail-photoact-btns { display: flex; gap: 8px; }
 .detail-photoact-btns .btn { flex: 1; }
 .detail-photo-del { width: 100%; margin-top: 8px; }
+.detail-back { width: 100%; margin-top: 10px; }
 
 .detail-actions { display: flex; gap: 9px; margin-top: 14px; }

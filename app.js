@@ -314,17 +314,14 @@ function drawBottom() {
 
     $('#btn-route').href = routeUrl(s);
 
-    const bc = $('#btn-checkin'), bp = $('#btn-photo'),
-          bk = $('#btn-photo-pick'), bd = $('#btn-photo-del');
+    const bc = $('#btn-checkin'), bp = $('#btn-photo'), bd = $('#btn-photo-del');
     if (v) {
       bc.textContent = 'チェックイン済み';
       bc.disabled = true;
       bc.classList.remove('btn-primary');
       bp.hidden = false;
-      bp.textContent = hasPhoto ? '撮り直す' : '写真を撮る';
+      bp.textContent = hasPhoto ? '写真を変える' : '写真を追加';
       bp.classList.toggle('btn-primary', !hasPhoto);
-      bk.hidden = false;
-      bk.textContent = hasPhoto ? '選び直す' : 'アルバムから選ぶ';
       bd.hidden = !hasPhoto;
     } else {
       const near = d !== null && d <= CHECKIN_M;
@@ -332,7 +329,6 @@ function drawBottom() {
       bc.disabled = !near;
       bc.classList.add('btn-primary');
       bp.hidden = true;
-      bk.hidden = true;
       bd.hidden = true;
     }
   } else {
@@ -389,15 +385,15 @@ $('#btn-checkin').addEventListener('click', () => {
 const fileInput = $('#file');
 
 /** 写真を選ぶ画面を出す。
-    mode='camera' …… capture を付ける。端末はカメラを直接開く（その場で撮る用）
-    mode='album'  …… capture を外す。アルバムもファイルも選べる画面になる
 
-    以前は capture を付けっぱなしにしていたため、**その場で撮る以外の道がなかった**。
-    前に撮ってある写真を残せないのは、旅の記録としては不自然なので分けた。 */
-function openPicker(sid, mode) {
+    capture は付けない。付けるとカメラが直接開き、その場で撮る以外の道がなくなる。
+    外すと端末の選択画面が出るが、そこには「写真を撮る」が最初から入っている
+    （iOSで確認：写真ライブラリ／写真を撮る／ファイルを選択）。
+
+    そのためボタンは1つで足りる。「撮る」と「選ぶ」で2つ出していた時期があったが、
+    押した先で同じ選択肢がもう一度出て、重複して見えていた。 */
+function openPicker(sid) {
   if (!sid || !state.visits[sid]) return;
-  if (mode === 'camera') fileInput.setAttribute('capture', 'environment');
-  else fileInput.removeAttribute('capture');
   fileInput.dataset.spot = sid;
   fileInput.value = '';
   fileInput.click();
@@ -421,17 +417,19 @@ async function dropPhoto(sid) {
 
 $('#btn-photo').addEventListener('click', () => {
   const s = targetSpot();
-  if (s) openPicker(s.id, 'camera');
-});
-
-$('#btn-photo-pick').addEventListener('click', () => {
-  const s = targetSpot();
-  if (s) openPicker(s.id, 'album');
+  if (s) openPicker(s.id);
 });
 
 $('#btn-photo-del').addEventListener('click', () => {
   const s = targetSpot();
   if (s) dropPhoto(s.id);
+});
+
+/* 地図のピンから詳細へ。シートは名前と一言しか置けないので、
+   紹介・距離・訪れた日・写真をまとめて見る場所へ渡せるようにする */
+$('#btn-detail').addEventListener('click', () => {
+  const s = targetSpot();
+  if (s) openDetail(s.id);
 });
 
 fileInput.addEventListener('change', async () => {
@@ -577,6 +575,29 @@ $('#book').addEventListener('click', (e) => {
    一覧のカードは小さく、写真も名前も切れてしまうので、
    「行ってみたい」と思える大きさで見せる場所が要る。 */
 
+/* 写真の形に枠を合わせる。
+   紹介写真は4:3で用意してあるが、自分で撮った写真は縦長のことが多い。
+   枠を4:3に固定したまま縦長の写真を入れると、上下が切り落とされて
+   主役（見附島など、たいてい上の方にある）が枠の外へ出てしまう。
+
+   読み込んでから実際の縦横比を見て、その形に枠を変える。
+   読めないうちは4:3で置いておく。 */
+function setDetailPhoto(url) {
+  const el = $('#detail-photo');
+  el.style.backgroundImage = "url('" + url + "')";
+  el.style.aspectRatio = '4 / 3';
+
+  const im = new Image();
+  im.onload = () => {
+    if ($('#detail').hidden) return;                 // 閉じたあとに届いたら捨てる
+    const w = im.naturalWidth, h = im.naturalHeight;
+    if (!w || !h) return;
+    // 縦長すぎると説明が画面の下へ押し出されるので、3:4 より縦長にはしない
+    el.style.aspectRatio = Math.max(w / h, 3 / 4).toFixed(4);
+  };
+  im.src = url;
+}
+
 function openDetail(id, keepScroll) {
   const s = SPOTS.filter((x) => x.id === id)[0];
   if (!s) return;
@@ -586,7 +607,7 @@ function openDetail(id, keepScroll) {
   const d = me ? distance(me, s) : null;
 
   $('#detail').dataset.spot = s.id;
-  $('#detail-photo').style.backgroundImage = "url('" + imageOf(s) + "')";
+  setDetailPhoto(imageOf(s));
   $('#detail-own').hidden = !own;
   $('#detail-cat').className = 'chip cat-' + s.cat;
   $('#detail-cat').textContent = catName(s.cat);
@@ -621,10 +642,9 @@ function openDetail(id, keepScroll) {
   act.hidden = !v;
   if (v) {
     $('#detail-photoact-h').textContent = own ? '自分の写真' : '自分の写真を残す';
-    $('#detail-shoot').textContent = own ? '撮り直す' : '写真を撮る';
-    $('#detail-shoot').classList.toggle('btn-primary', !own);
-    $('#detail-pick').textContent  = own ? '選び直す' : 'アルバムから選ぶ';
-    $('#detail-photo-del').hidden  = !own;
+    $('#detail-pick').textContent = own ? '写真を変える' : '写真を追加';
+    $('#detail-pick').classList.toggle('btn-primary', !own);
+    $('#detail-photo-del').hidden = !own;
   }
 
   $('#detail-note').textContent = v
@@ -644,9 +664,9 @@ function redrawDetail() {
 
 function closeDetail() { $('#detail').hidden = true; }
 
-$('#detail-shoot').addEventListener('click', () => openPicker($('#detail').dataset.spot, 'camera'));
-$('#detail-pick').addEventListener('click',  () => openPicker($('#detail').dataset.spot, 'album'));
+$('#detail-pick').addEventListener('click', () => openPicker($('#detail').dataset.spot));
 $('#detail-photo-del').addEventListener('click', () => dropPhoto($('#detail').dataset.spot));
+$('#detail-back').addEventListener('click', closeDetail);
 
 $('#detail-close').addEventListener('click', closeDetail);
 $('#detail').addEventListener('click', (e) => {

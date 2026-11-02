@@ -132,9 +132,9 @@
         <p id="sheet-desc" class="sheet-desc"></p>
         <div class="sheet-actions">
           <button id="btn-checkin" class="btn btn-primary">チェックイン</button>
+          <button id="btn-detail" class="btn">詳しく見る</button>
           <a id="btn-route" class="btn btn-link" target="_blank" rel="noopener noreferrer">行き方</a>
-          <button id="btn-photo" class="btn" hidden>写真を撮る</button>
-          <button id="btn-photo-pick" class="btn" hidden>アルバムから選ぶ</button>
+          <button id="btn-photo" class="btn" hidden>写真を追加</button>
           <button id="btn-photo-del" class="btn btn-quiet" hidden>写真を削除</button>
         </div>
       </div>
@@ -348,9 +348,10 @@
       <!-- 自分の写真。大きく出ている写真を差し替える操作なので、写真のすぐ下に置く -->
       <div class="detail-photoact" id="detail-photoact" hidden>
         <h3 class="detail-h3" id="detail-photoact-h">自分の写真</h3>
+        <!-- ボタンは1つ。端末側の選択画面に「写真を撮る」が最初から入っているため、
+             こちらで分けると同じ選択肢が二重に出る（iOSで確認） -->
         <div class="detail-photoact-btns">
-          <button type="button" id="detail-shoot" class="btn">写真を撮る</button>
-          <button type="button" id="detail-pick" class="btn">アルバムから選ぶ</button>
+          <button type="button" id="detail-pick" class="btn">写真を追加</button>
         </div>
         <button type="button" id="detail-photo-del" class="btn btn-quiet detail-photo-del" hidden>
           写真を削除
@@ -363,6 +364,10 @@
         </a>
         <button type="button" id="detail-map" class="btn">地図で見る</button>
       </div>
+
+      <!-- 上の✕とは別に、下まで読んだ所にも出口を置く。
+           ✕が画面の外に出て戻れなくなった不具合があったため、出口は二重にしてある -->
+      <button type="button" id="detail-back" class="btn btn-quiet detail-back">閉じる</button>
 
       <p class="note" id="detail-note"></p>
     </div>
