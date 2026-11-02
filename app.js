@@ -314,14 +314,21 @@ function drawBottom() {
 
     $('#btn-route').href = routeUrl(s);
 
-    const bc = $('#btn-checkin'), bp = $('#btn-photo'), bd = $('#btn-photo-del');
+    const bc = $('#btn-checkin'), bp = $('#btn-photo'),
+          bs = $('#btn-shoot'), bd = $('#btn-photo-del');
     if (v) {
       bc.textContent = 'チェックイン済み';
       bc.disabled = true;
       bc.classList.remove('btn-primary');
       bp.hidden = false;
-      bp.textContent = hasPhoto ? '写真を変える' : '写真を追加';
-      bp.classList.toggle('btn-primary', !hasPhoto);
+      // カメラ用が別に出る端末では、こちらは「アルバム側」とはっきり書く
+      bp.textContent = NEED_SHOOT
+        ? 'アルバムから選ぶ'
+        : (hasPhoto ? '写真を変える' : '写真を追加');
+      bp.classList.toggle('btn-primary', !hasPhoto && !NEED_SHOOT);
+      bs.hidden = !NEED_SHOOT;
+      bs.textContent = hasPhoto ? '撮り直す' : '写真を撮る';
+      bs.classList.toggle('btn-primary', !hasPhoto);
       bd.hidden = !hasPhoto;
     } else {
       const near = d !== null && d <= CHECKIN_M;
@@ -329,6 +336,7 @@ function drawBottom() {
       bc.disabled = !near;
       bc.classList.add('btn-primary');
       bp.hidden = true;
+      bs.hidden = true;
       bd.hidden = true;
     }
   } else {
@@ -384,16 +392,36 @@ $('#btn-checkin').addEventListener('click', () => {
 
 const fileInput = $('#file');
 
-/** 写真を選ぶ画面を出す。
+/* ---------- 写真の取り込み ----------
 
-    capture は付けない。付けるとカメラが直接開き、その場で撮る以外の道がなくなる。
-    外すと端末の選択画面が出るが、そこには「写真を撮る」が最初から入っている
-    （iOSで確認：写真ライブラリ／写真を撮る／ファイルを選択）。
+   capture を付けない入力を押したとき、端末が出す画面が**OSによって違う**。
+   どちらも実機で確かめた結果：
 
-    そのためボタンは1つで足りる。「撮る」と「選ぶ」で2つ出していた時期があったが、
-    押した先で同じ選択肢がもう一度出て、重複して見えていた。 */
-function openPicker(sid) {
+     iPhone … 「写真ライブラリ／写真を撮る／ファイルを選択」の選択画面が出る。
+              カメラがここに入っているので、ボタンは1つで足りる。
+              別に「写真を撮る」を置くと、押した先で同じ選択肢がまた出て二重になる。
+     Android … アルバムが直接開く。カメラへ行く道がない。
+              その場で撮るには capture を付けたボタンを別に置くしかない。
+
+   そこで、カメラが選択画面に入っていると**確認できている iPhone だけ**を1つにまとめ、
+   それ以外は2つ出す。確認が取れていない側を勝手にまとめない、という向きにしてある。
+   （UAでの判定は本来避けたいが、端末が出す画面の中身は他に調べようがない） */
+
+function isIOS() {
+  const ua = navigator.userAgent || '';
+  // iPadOS は Mac を名乗るので、指で触れるかどうかで見分ける
+  return /iPad|iPhone|iPod/.test(ua) ||
+         (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+}
+
+/** カメラ用のボタンを別に出す必要があるか（＝選択画面にカメラが入っていない側） */
+const NEED_SHOOT = !isIOS();
+
+/** 写真を選ぶ画面を出す。mode='camera' のときだけ capture を付け、カメラを直接開く */
+function openPicker(sid, mode) {
   if (!sid || !state.visits[sid]) return;
+  if (mode === 'camera') fileInput.setAttribute('capture', 'environment');
+  else fileInput.removeAttribute('capture');
   fileInput.dataset.spot = sid;
   fileInput.value = '';
   fileInput.click();
@@ -418,6 +446,11 @@ async function dropPhoto(sid) {
 $('#btn-photo').addEventListener('click', () => {
   const s = targetSpot();
   if (s) openPicker(s.id);
+});
+
+$('#btn-shoot').addEventListener('click', () => {
+  const s = targetSpot();
+  if (s) openPicker(s.id, 'camera');
 });
 
 $('#btn-photo-del').addEventListener('click', () => {
@@ -642,8 +675,14 @@ function openDetail(id, keepScroll) {
   act.hidden = !v;
   if (v) {
     $('#detail-photoact-h').textContent = own ? '自分の写真' : '自分の写真を残す';
-    $('#detail-pick').textContent = own ? '写真を変える' : '写真を追加';
-    $('#detail-pick').classList.toggle('btn-primary', !own);
+    // カメラ用が別に出る端末（Android等）では、こちらをアルバム側として分ける
+    $('#detail-pick').textContent = NEED_SHOOT
+      ? 'アルバムから選ぶ'
+      : (own ? '写真を変える' : '写真を追加');
+    $('#detail-pick').classList.toggle('btn-primary', !own && !NEED_SHOOT);
+    $('#detail-shoot').hidden = !NEED_SHOOT;
+    $('#detail-shoot').textContent = own ? '撮り直す' : '写真を撮る';
+    $('#detail-shoot').classList.toggle('btn-primary', !own);
     $('#detail-photo-del').hidden = !own;
   }
 
@@ -665,6 +704,7 @@ function redrawDetail() {
 function closeDetail() { $('#detail').hidden = true; }
 
 $('#detail-pick').addEventListener('click', () => openPicker($('#detail').dataset.spot));
+$('#detail-shoot').addEventListener('click', () => openPicker($('#detail').dataset.spot, 'camera'));
 $('#detail-photo-del').addEventListener('click', () => dropPhoto($('#detail').dataset.spot));
 $('#detail-back').addEventListener('click', closeDetail);
 
@@ -1200,6 +1240,8 @@ async function drawUsage() {
   if (sw) {
     sw.textContent = 'オフライン：' + (await offlineStatus()) +
                      '　ホーム画面：' + (isStandalone() ? '追加済み' : '未追加') +
+                     // 端末ごとに写真ボタンの数を変えているので、どちらになったかを出す
+                     '　写真：' + (NEED_SHOOT ? '撮る＋アルバム' : 'まとめて1つ') +
                      '　版：' + APP_VERSION;
   }
 }
