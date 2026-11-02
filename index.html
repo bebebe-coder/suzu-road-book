@@ -134,6 +134,7 @@
           <button id="btn-checkin" class="btn btn-primary">チェックイン</button>
           <a id="btn-route" class="btn btn-link" target="_blank" rel="noopener noreferrer">行き方</a>
           <button id="btn-photo" class="btn" hidden>写真を撮る</button>
+          <button id="btn-photo-pick" class="btn" hidden>アルバムから選ぶ</button>
           <button id="btn-photo-del" class="btn btn-quiet" hidden>写真を削除</button>
         </div>
       </div>
@@ -344,6 +345,18 @@
 
       <div class="detail-rows" id="detail-rows"></div>
 
+      <!-- 自分の写真。大きく出ている写真を差し替える操作なので、写真のすぐ下に置く -->
+      <div class="detail-photoact" id="detail-photoact" hidden>
+        <h3 class="detail-h3" id="detail-photoact-h">自分の写真</h3>
+        <div class="detail-photoact-btns">
+          <button type="button" id="detail-shoot" class="btn">写真を撮る</button>
+          <button type="button" id="detail-pick" class="btn">アルバムから選ぶ</button>
+        </div>
+        <button type="button" id="detail-photo-del" class="btn btn-quiet detail-photo-del" hidden>
+          写真を削除
+        </button>
+      </div>
+
       <div class="detail-actions">
         <a id="detail-route" class="btn btn-primary btn-link" target="_blank" rel="noopener noreferrer">
           行き方を調べる
@@ -397,7 +410,10 @@
   </div>
 </div>
 
-<input type="file" id="file" accept="image/*" capture="environment" hidden>
+<!-- capture は押されたボタンに応じて付け外しする（app.js の openPicker）。
+     付いていると端末はカメラを直接開き、外すとアルバムも選べる選択画面になる。
+     どちらか一方に決めず、押す側で選べるようにしてある -->
+<input type="file" id="file" accept="image/*" hidden>
 <input type="file" id="import-file" accept="application/json,.json" hidden>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"

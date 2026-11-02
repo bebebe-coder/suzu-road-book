@@ -314,14 +314,17 @@ function drawBottom() {
 
     $('#btn-route').href = routeUrl(s);
 
-    const bc = $('#btn-checkin'), bp = $('#btn-photo'), bd = $('#btn-photo-del');
+    const bc = $('#btn-checkin'), bp = $('#btn-photo'),
+          bk = $('#btn-photo-pick'), bd = $('#btn-photo-del');
     if (v) {
       bc.textContent = 'チェックイン済み';
       bc.disabled = true;
       bc.classList.remove('btn-primary');
       bp.hidden = false;
-      bp.textContent = hasPhoto ? '写真を撮り直す' : '写真を撮る';
+      bp.textContent = hasPhoto ? '撮り直す' : '写真を撮る';
       bp.classList.toggle('btn-primary', !hasPhoto);
+      bk.hidden = false;
+      bk.textContent = hasPhoto ? '選び直す' : 'アルバムから選ぶ';
       bd.hidden = !hasPhoto;
     } else {
       const near = d !== null && d <= CHECKIN_M;
@@ -329,6 +332,7 @@ function drawBottom() {
       bc.disabled = !near;
       bc.classList.add('btn-primary');
       bp.hidden = true;
+      bk.hidden = true;
       bd.hidden = true;
     }
   } else {
@@ -384,26 +388,50 @@ $('#btn-checkin').addEventListener('click', () => {
 
 const fileInput = $('#file');
 
-$('#btn-photo').addEventListener('click', () => {
-  const s = targetSpot();
-  if (!s) return;
-  fileInput.dataset.spot = s.id;
+/** 写真を選ぶ画面を出す。
+    mode='camera' …… capture を付ける。端末はカメラを直接開く（その場で撮る用）
+    mode='album'  …… capture を外す。アルバムもファイルも選べる画面になる
+
+    以前は capture を付けっぱなしにしていたため、**その場で撮る以外の道がなかった**。
+    前に撮ってある写真を残せないのは、旅の記録としては不自然なので分けた。 */
+function openPicker(sid, mode) {
+  if (!sid || !state.visits[sid]) return;
+  if (mode === 'camera') fileInput.setAttribute('capture', 'environment');
+  else fileInput.removeAttribute('capture');
+  fileInput.dataset.spot = sid;
   fileInput.value = '';
   fileInput.click();
-});
+}
 
-$('#btn-photo-del').addEventListener('click', async () => {
-  const s = targetSpot();
-  if (!s || !state.visits[s.id] || !state.visits[s.id].photoId) return;
+/** 写真を消して、元の紹介写真に戻す */
+async function dropPhoto(sid) {
+  const s = SPOTS.filter((x) => x.id === sid)[0];
+  if (!s || !state.visits[sid] || !state.visits[sid].photoId) return;
   if (!confirm(s.name + ' の写真を削除します。元の紹介写真に戻ります。')) return;
 
-  const id = state.visits[s.id].photoId;
-  state.visits[s.id].photoId = null;
+  const id = state.visits[sid].photoId;
+  state.visits[sid].photoId = null;
   Store.saveState(state);
   try { await Store.delPhoto(id); } catch (e) { console.warn(e); }
-  if (photoUrls[s.id]) { URL.revokeObjectURL(photoUrls[s.id]); delete photoUrls[s.id]; }
+  if (photoUrls[sid]) { URL.revokeObjectURL(photoUrls[sid]); delete photoUrls[sid]; }
   refresh();
+  redrawDetail();
   toast('写真を削除しました');
+}
+
+$('#btn-photo').addEventListener('click', () => {
+  const s = targetSpot();
+  if (s) openPicker(s.id, 'camera');
+});
+
+$('#btn-photo-pick').addEventListener('click', () => {
+  const s = targetSpot();
+  if (s) openPicker(s.id, 'album');
+});
+
+$('#btn-photo-del').addEventListener('click', () => {
+  const s = targetSpot();
+  if (s) dropPhoto(s.id);
 });
 
 fileInput.addEventListener('change', async () => {
@@ -429,6 +457,7 @@ fileInput.addEventListener('change', async () => {
 
     setPhotoUrl(sid, blob);
     refresh();
+    redrawDetail();          // 詳細を開いたまま入れ替えたときに、その場で反映する
     toast('地図に写真が残りました');
   } catch (e) {
     console.warn('写真の保存に失敗', e);
@@ -548,9 +577,10 @@ $('#book').addEventListener('click', (e) => {
    一覧のカードは小さく、写真も名前も切れてしまうので、
    「行ってみたい」と思える大きさで見せる場所が要る。 */
 
-function openDetail(id) {
+function openDetail(id, keepScroll) {
   const s = SPOTS.filter((x) => x.id === id)[0];
   if (!s) return;
+  const scroll = keepScroll ? $('#detail').scrollTop : 0;
   const v = state.visits[s.id];
   const own = !!photoUrls[s.id];
   const d = me ? distance(me, s) : null;
@@ -584,15 +614,39 @@ function openDetail(id) {
     return dt.outerHTML;
   }).join('');
 
+  /* 自分の写真。訪れた所だけ差し替えられる。
+     まだ訪れていない所で写真を足せてしまうと、
+     「現地でチェックインして埋める」という図鑑の筋が通らなくなるため */
+  const act = $('#detail-photoact');
+  act.hidden = !v;
+  if (v) {
+    $('#detail-photoact-h').textContent = own ? '自分の写真' : '自分の写真を残す';
+    $('#detail-shoot').textContent = own ? '撮り直す' : '写真を撮る';
+    $('#detail-shoot').classList.toggle('btn-primary', !own);
+    $('#detail-pick').textContent  = own ? '選び直す' : 'アルバムから選ぶ';
+    $('#detail-photo-del').hidden  = !own;
+  }
+
   $('#detail-note').textContent = v
-    ? '写真の撮り直しは、地図の詳細から行えます。'
-    : '現地で' + CHECKIN_M + 'm以内に入ると、地図の詳細からチェックインできます。';
+    ? '上の大きな写真が、自分の写真に入れ替わります。地図のピンと図鑑のカードにも使われます。'
+    : '現地で' + CHECKIN_M + 'm以内に入ると、地図の詳細からチェックインできます。'
+      + 'チェックインすると、自分の写真を残せるようになります。';
 
   $('#detail').hidden = false;
-  $('#detail').scrollTop = 0;
+  $('#detail').scrollTop = scroll;
+}
+
+/** 開いたままの詳細を描き直す（写真を入れ替えた直後など）。閉じているときは何もしない */
+function redrawDetail() {
+  const d = $('#detail');
+  if (!d.hidden) openDetail(d.dataset.spot, true);
 }
 
 function closeDetail() { $('#detail').hidden = true; }
+
+$('#detail-shoot').addEventListener('click', () => openPicker($('#detail').dataset.spot, 'camera'));
+$('#detail-pick').addEventListener('click',  () => openPicker($('#detail').dataset.spot, 'album'));
+$('#detail-photo-del').addEventListener('click', () => dropPhoto($('#detail').dataset.spot));
 
 $('#detail-close').addEventListener('click', closeDetail);
 $('#detail').addEventListener('click', (e) => {
