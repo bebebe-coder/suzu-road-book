@@ -2,13 +2,23 @@ name = "suzu-plate"
 main = "src/index.js"
 compatibility_date = "2026-10-01"
 
-# 番号の保管庫。持っているのは「その5桁が使われているか」だけ
-[[kv_namespaces]]
-binding = "PLATES"
-id = "eec1d4bcaec74580982d893ea1bdc145"
-
-# 回数の制限は src/index.js 側で Cache API を使って数えている。
+# 番号の台帳。数字1つにつき世界で1つだけの入れ物ができ、
+# その数字への処理が1件ずつ順番に流れる（同じ文字が2人に出ない）。
 #
+# 無料枠で使えるのは SQLite 版のみ。そのため migrations は new_sqlite_classes で作る
+# （new_classes は旧KV版の指定で、無料枠では配備が通らない）。
+[[durable_objects.bindings]]
+name = "PLATE"
+class_name = "PlateBook"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["PlateBook"]
+
+# 以前は Workers KV（binding = "PLATES", id = eec1d4bc…）に置いていたが、
+# 2026-11-02 に Durable Objects へ移した。移行時の登録件数は0件で、持ち越しは不要だった。
+# KVは拠点ごとに写しがあり反映に時間差があるため、同じ文字を2人に見せる隙が残っていた。
+#
+# 回数の制限は src/index.js 側で Cache API を使って数えている。
 # Cloudflare の rate limiting バインディング（unsafe）も試したが、この構成では
 # まったく効かなかった（1分20回の設定で45回続けても1度も止まらないことを実測）。
-# KVで数えると書き込み枠（1日1,000回）を食い潰すため、Cache API に落ち着いた。

@@ -161,18 +161,6 @@
     <div id="chips" class="chips"></div>
     <div id="book" class="book"></div>
 
-    <section class="card panel">
-      <h3>記録の持ち出し</h3>
-      <p>記録はこの端末の中だけにあります。端末やブラウザを変えると消えます。
-         ファイルに書き出してクラウドドライブ等へ保存しておけば、別の端末で戻せます。</p>
-      <div class="panel-actions">
-        <button id="btn-export" class="btn">記録を書き出す</button>
-        <button id="btn-import" class="btn">記録を読み込む</button>
-      </div>
-      <p id="usage" class="note"></p>
-      <p id="sw-status" class="note"></p>
-    </section>
-
     <!-- CCライセンスの写真を使っているため、出典の表示は公開するうえでの条件 -->
     <section class="card panel">
       <h3>このアプリについて</h3>
@@ -232,7 +220,7 @@
         </div>
       </div>
       <div class="panel-actions">
-        <button id="btn-gacha-map" class="btn">地図で見る</button>
+        <button id="btn-gacha-detail" class="btn">詳しく見る</button>
       </div>
     </div>
 
@@ -297,6 +285,21 @@
     <section class="card panel">
       <h3>走った記録</h3>
       <div id="garage-stats" class="stats"></div>
+    </section>
+
+    <!-- 自分のもの（ナンバー・バッジ・走行記録）が集まる場所なので、
+         その持ち出しも同じGARAGEに置く。以前はBOOK（図鑑）側にあった -->
+    <section class="card panel">
+      <h3>記録の持ち出し</h3>
+      <p>記録はこの端末の中だけにあります。端末やブラウザを変えると消えます。
+         ファイルに書き出してクラウドドライブ等へ保存しておけば、別の端末で戻せます。</p>
+      <p id="export-when" class="export-when"></p>
+      <div class="panel-actions">
+        <button id="btn-export" class="btn">記録を書き出す</button>
+        <button id="btn-import" class="btn">記録を読み込む</button>
+      </div>
+      <p id="usage" class="note"></p>
+      <p id="sw-status" class="note"></p>
     </section>
 
     <section class="card panel exit-panel">
@@ -373,7 +376,9 @@
     <p class="play-desc" id="play-desc"></p>
     <div class="play-actions">
       <button type="button" id="play-again" class="btn btn-primary">もう1回</button>
-      <button type="button" id="play-map" class="btn">地図で見る</button>
+      <!-- 以前は地図へ飛ばしていたが、引いた直後に知りたいのは
+           「それが何で、どう行くか」。地図はその詳細の中から開ける -->
+      <button type="button" id="play-detail" class="btn">詳しく見る</button>
     </div>
     <button type="button" id="play-close" class="btn btn-quiet play-close">閉じる</button>
   </div>

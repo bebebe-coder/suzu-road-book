@@ -6,9 +6,19 @@
      2〜5文字目 … 1〜9999 の数字（先頭の0は詰める。本物に 0115 は無く、115 は ・115 と出る）
    ひらがなが尽きたら A〜Z を足して、1つの数字につき67通りまで。
 
-   KVの無料枠は読み取り10万回／日に対し、**書き込みは1,000回／日**しかない。
-   そのため「空いているか」は読み取りだけで済ませ、書き込むのは確保する瞬間だけにしてある。
-   空き探しも、1文字ずつ67回読むのではなく、使用済みを1つのキーにまとめて1回で読む。 */
+   ■ 保管は Durable Objects（2026-11-02にKVから移した）
+
+   以前は Workers KV に置いていた。KVは世界中の拠点に写しが置かれる仕組みで、
+   書いた内容が全拠点へ行き渡るまで時間差がある。そのため
+   「あ は空いている」と2人が同時に見てしまう隙が、ごく稀にあった。
+   （上書きだけは書き込み前の確認で防いでいたが、同じ文字を2人に見せる隙は残っていた）
+
+   Durable Objects は、数字1つにつき**世界で1つだけ**の入れ物が割り当てられる。
+   その数字に関する確認も確保も必ずそこへ集まり、1件ずつ順番に処理される。
+   行列が1本になるので、同時に来ても同じ文字が出ない。これが本来の正しい作りで、
+   KVの書き込み枠（1日1,000回）にも縛られなくなる。 */
+
+import { DurableObject } from 'cloudflare:workers';
 
 const SITES = new Set([
   'https://bebebe-coder.github.io',
@@ -20,6 +30,51 @@ const SITES = new Set([
 const KANA  = 'あいうえかきくけこさすせそたちつてとなにぬねのはひふほまみむめもやゆよらりるれろわ';
 const ALPHA = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 const MARKS = (KANA + ALPHA).split('');
+
+/* ---------- 数字1つぶんの台帳 ----------
+
+   数字「61」の台帳は世界に1つしかなく、61に関する処理はすべてそこへ集まる。
+   Durable Object は受けた処理を1件ずつ順番に実行するため、
+   「空きを読む → 使用済みに書く」の間に別の人が割り込むことがない。
+   だから、KVのときに必要だった「書き込む前にもう一度確かめる」が要らなくなる。 */
+export class PlateBook extends DurableObject {
+  /** 使用済みの文字。1つの文字列にまとめてあり、1回の読み取りで済む */
+  async #taken() {
+    return (await this.ctx.storage.get('taken')) || '';
+  }
+
+  /** 空いている最初の文字。満杯なら mark は null */
+  async free() {
+    const taken = await this.#taken();
+    for (const m of MARKS) {
+      if (taken.indexOf(m) < 0) return { mark: m, used: taken.length };
+    }
+    return { mark: null, used: taken.length };
+  }
+
+  /** 空いている文字を1つ確保する。鍵そのものは渡されず、ハッシュだけを預かる */
+  async claim(hash) {
+    const taken = await this.#taken();
+    let mark = null;
+    for (const m of MARKS) {
+      if (taken.indexOf(m) < 0) { mark = m; break; }
+    }
+    if (!mark) return { mark: null, used: taken.length };
+
+    // 2つの書き込みをまとめて渡す。片方だけが残ることはない
+    await this.ctx.storage.put({
+      ['m:' + mark]: { at: new Date().toISOString(), h: hash },
+      taken: taken + mark
+    });
+    return { mark: mark, used: taken.length + 1 };
+  }
+
+  /** 別の端末で取り戻すとき、その番号が本人のものかを確かめる */
+  async owns(mark, hash) {
+    const rec = await this.ctx.storage.get('m:' + mark);
+    return !!rec && rec.h === hash;
+  }
+}
 
 /* ---------- 小物 ---------- */
 
@@ -59,11 +114,14 @@ async function sha256(text) {
   return Array.from(new Uint8Array(buf)).map((x) => x.toString(16).padStart(2, '0')).join('');
 }
 
+/** その数字の台帳を呼び出す。同じ数字なら、世界中のどこから来ても同じ1つに届く */
+const book = (env, n) => env.PLATE.get(env.PLATE.idFromName('n:' + n));
+
 /* ---------- 回数の制限 ----------
 
    Cloudflare の rate limiting バインディング（unsafe）は、この構成では効かなかった。
    1分20回の設定で45回続けても1度も止まらないことを実測している。
-   そこで、数えるのに Cache API を使う。KVの書き込み枠（1日1,000回）を使わずに済む。
+   そこで、数えるのに Cache API を使う。
 
    厳密ではない（同時に来ると数え落とす／Cloudflareの拠点ごとに別勘定）。
    それでも、素朴な連打を止めるには十分で、ここでの目的はそれ。
@@ -93,25 +151,24 @@ async function underLimit(key, limit, ttl, strict) {
   }
 }
 
-/** その数字で空いている最初の文字。使用済みは idx:<数字> に1つの文字列でまとめてある */
-async function firstFree(env, n) {
-  const taken = (await env.PLATES.get('idx:' + n)) || '';
-  for (const m of MARKS) if (taken.indexOf(m) < 0) return { mark: m, taken: taken };
-  return { mark: null, taken: taken };
-}
-
 /* ---------- 窓口 ---------- */
 
 async function check(env, origin, url) {
   const n = normalize(url.searchParams.get('n'));
   if (!n) return reply(origin, 400, { error: '1〜9999の数字を入れてください' });
 
-  const { mark, taken } = await firstFree(env, n);
+  let r;
+  try {
+    r = await book(env, n).free();
+  } catch (e) {
+    return reply(origin, 503, { error: 'いま確認できません。時間をおいてお試しください' });
+  }
+
   return reply(origin, 200, {
     number: n,
-    mark: mark,                       // 空いている最初の文字。満杯なら null
-    plate: mark ? display(mark, n) : null,
-    used: taken.length,
+    mark: r.mark,                      // 空いている最初の文字。満杯なら null
+    plate: r.mark ? display(r.mark, n) : null,
+    used: r.used,
     total: MARKS.length
   });
 }
@@ -132,22 +189,12 @@ async function claim(env, origin, req, ip) {
   const n = normalize(body.n);
   if (!n) return reply(origin, 400, { error: '1〜9999の数字を入れてください' });
 
-  const { mark, taken } = await firstFree(env, n);
-  if (!mark) return reply(origin, 409, { error: 'この数字は空きがありません', number: n });
-
-  /* 使用済み一覧（idx）の反映には時間差があるため、ごく稀に
-     すでに誰かが持っている番号を「空き」と見てしまうことがある。
-     その番号の本体をもう一度見て、あれば上書きしない。
-     上書きを許すと、先に持っていた人の鍵が消えて番号を奪える。 */
-  if (await env.PLATES.get('plate:' + mark + n)) {
-    return reply(origin, 409, { error: 'ちょうど埋まりました。もう一度お試しください', number: n });
-  }
-
   /* 全体の枠は、実際に書き込むと決まってから数える。
-     ここが手前にあると、通らない要求（でたらめな数字・満杯の数字）でも枠が減ってしまう。
-     確保は1回につきKVへ2回書く。書き込み枠は1日1,000回なので、300件で600回。 */
+     ここが手前にあると、通らない要求（でたらめな数字）でも枠が減ってしまう。
+     Durable Objects に移したのでKVの書き込み枠（1日1,000回）からは外れたが、
+     Workers自体の無料枠（1日10万リクエスト）を1人に使い切られないよう上限は残す。 */
   const today = new Date().toISOString().slice(0, 10);
-  const perDay = await underLimit('claim-all:' + today, 300, 86400, true);
+  const perDay = await underLimit('claim-all:' + today, 1000, 86400, true);
   if (perDay === COUNTER_FAIL) {
     return reply(origin, 503, { error: 'いま登録を受け付けられません。時間をおいてお試しください' });
   }
@@ -158,23 +205,18 @@ async function claim(env, origin, req, ip) {
   }
 
   const key = newKey();
+  let r;
   try {
-    await env.PLATES.put('plate:' + mark + n, JSON.stringify({
-      at: new Date().toISOString(),
-      h: await sha256(key)           // 鍵そのものは置かない
-    }));
-    await env.PLATES.put('idx:' + n, taken + mark);
+    // 鍵そのものは渡さない。台帳が持つのはハッシュだけ
+    r = await book(env, n).claim(await sha256(key));
   } catch (e) {
-    /* KVの書き込み枠（1日1,000回）を使い切ると、ここで落ちる。
-       そのまま500にすると何が起きたか分からないので、はっきり返す。
-       空き確認（読み取り）は10万回／日あるので、そちらは動き続ける。 */
-    return reply(origin, 503, {
-      error: '本日の登録受付は終了しました。日付が変わると再開しますので、明日お試しください'
-    });
+    return reply(origin, 503, { error: 'いま登録を受け付けられません。時間をおいてお試しください' });
   }
 
+  if (!r.mark) return reply(origin, 409, { error: 'この数字は空きがありません', number: n });
+
   return reply(origin, 200, {
-    number: n, mark: mark, plate: display(mark, n), key: key
+    number: n, mark: r.mark, plate: display(r.mark, n), key: key
   });
 }
 
@@ -188,8 +230,13 @@ async function verify(env, origin, req) {
   if (!n || MARKS.indexOf(mark) < 0 || !body.key) {
     return reply(origin, 400, { error: '番号と鍵を渡してください' });
   }
-  const rec = await env.PLATES.get('plate:' + mark + n, 'json');
-  const ok = !!rec && rec.h === await sha256(String(body.key));
+
+  let ok;
+  try {
+    ok = await book(env, n).owns(mark, await sha256(String(body.key)));
+  } catch (e) {
+    return reply(origin, 503, { error: 'いま確認できません。時間をおいてお試しください' });
+  }
   return reply(origin, ok ? 200 : 404, { ok: ok });
 }
 

@@ -489,6 +489,17 @@ main {
 .panel-actions { display: flex; gap: 8px; margin-top: 12px; }
 .note { margin-top: 9px !important; font-size: 10px !important; color: var(--ink-faint) !important; }
 
+/* 最後に書き出した日。まだ一度も出していないときだけ色を立てる。
+   常時ボタンを置く代わりの、ここにしか出ない控えめな知らせ */
+.export-when {
+  margin-top: 10px; padding: 8px 10px; border-radius: 8px;
+  font-size: 12px; line-height: 1.5;
+  background: var(--brand-pale); color: var(--ink-dim);
+}
+.export-when.is-warn {
+  background: #fdf0e3; color: #8a4b13; font-weight: 600;
+}
+
 /* ---------- GARAGE ---------- */
 
 .garage-hero {

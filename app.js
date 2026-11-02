@@ -514,7 +514,7 @@ function drawBook() {
           { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
       : (kn ? '行ってみよう' : '未発見');
     const cls = v ? '' : (kn ? 'is-known' : 'is-locked');
-    // 知っているものは押せる。押すと地図へ飛び、そこから行き方を調べられる
+    // 知っているものは押せる。押すと詳細が開き、そこから行き方も地図も見られる
     const tap = (v || kn) ? ' data-spot="' + s.id + '"' : '';
     return [
       '<div class="bcard ' + cls + '"' + tap + '>',
@@ -529,7 +529,7 @@ function drawBook() {
       '      <span class="chip cat-' + s.cat + '">' + catName(s.cat) + '</span>',
       '      <span class="bcard-date">' + date + '</span>',
       '    </div>',
-      (v || kn) ? '    <span class="bcard-go">地図で見る ›</span>' : '',
+      (v || kn) ? '    <span class="bcard-go">詳しく見る ›</span>' : '',
       '  </div>',
       '</div>'
     ].join('\n');
@@ -764,14 +764,13 @@ function closePlay() {
 
 $('#play-close').addEventListener('click', closePlay);
 $('#play-again').addEventListener('click', () => { closePlay(); spin(); });
-$('#play-map').addEventListener('click', () => {
-  const s = SPOTS.filter((x) => x.id === play.dataset.spot)[0];
+/* 引いた直後は「それが何で、どう行くか」を見たい。
+   地図へ飛ばすとピンが1本立つだけで、説明も行き方もその場にない。
+   図鑑の詳細を重ねて出す。タブは動かさないので、閉じればガチャに戻って続けられる */
+$('#play-detail').addEventListener('click', () => {
+  const id = play.dataset.spot;
   closePlay();
-  if (!s) return;
-  showView('map');
-  focusId = s.id;
-  map.setView([s.lat, s.lng], 13);
-  setTimeout(() => { map.invalidateSize(); drawBottom(); drawFog(); }, 0);
+  openDetail(id);
 });
 
 let spinning = false;
@@ -808,13 +807,8 @@ async function spin() {
 
 $('#btn-gacha').addEventListener('click', spin);
 
-$('#btn-gacha-map').addEventListener('click', () => {
-  const s = SPOTS.filter((x) => x.id === $('#gacha-result').dataset.spot)[0];
-  if (!s) return;
-  showView('map');
-  focusId = s.id;
-  map.setView([s.lat, s.lng], 13);
-  setTimeout(() => { map.invalidateSize(); drawBottom(); drawFog(); }, 0);
+$('#btn-gacha-detail').addEventListener('click', () => {
+  openDetail($('#gacha-result').dataset.spot);
 });
 
 /* ---------- GARAGE ---------- */
@@ -898,7 +892,7 @@ function drawPlateReg() {
     btn.textContent = '別の番号にする';
     btn.disabled = false;
     $('#plate-note').textContent =
-      'この番号はあなただけのものです。端末を変えるときは、BOOKタブの「記録を書き出す」で' +
+      'この番号はあなただけのものです。端末を変えるときは、このタブの下にある「記録を書き出す」で' +
       '持ち出せば取り戻せます。';
     return;
   }
@@ -1050,11 +1044,37 @@ $('#modal').addEventListener('click', (e) => {
 
 const importInput = $('#import-file');
 
+/* 書き出しは年に数回の操作なので、常時出すボタンは置かない。
+   代わりに「まだ書き出していない」ことをここで見えるようにしておく。
+   記録が溜まるほど強く出るので、必要な人にだけ届く */
+function drawExportWhen() {
+  const el = $('#export-when');
+  if (!el) return;
+  const n = nVisited();
+  const at = state.exportedAt;
+
+  if (at) {
+    el.className = 'export-when';
+    el.textContent = '最後の書き出し：' +
+      new Date(at).toLocaleString('ja-JP',
+        { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  } else if (n === 0) {
+    el.className = 'export-when';
+    el.textContent = 'まだ書き出す記録がありません。';
+  } else {
+    el.className = 'export-when is-warn';
+    el.textContent = 'まだ一度も書き出していません（' + n + 'スポットぶんの記録があります）。';
+  }
+}
+
 $('#btn-export').addEventListener('click', async () => {
   const n = nVisited();
   if (n === 0) { toast('まだ記録がありません'); return; }
   try {
     const r = await Backup.save(state);
+    state.exportedAt = new Date().toISOString();
+    Store.saveState(state);
+    drawExportWhen();
     toast('書き出しました（' + n + 'スポット・写真' + r.photos + '枚・' +
           Math.round(r.bytes / 1024) + 'KB）');
   } catch (e) {
@@ -1366,6 +1386,7 @@ function refresh() {
   drawBook();
   drawGacha();
   drawGarage();
+  drawExportWhen();
 }
 
 /** 検証用：?seed=1 で「何か所か回ったあと」の状態から始める */
