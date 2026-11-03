@@ -163,14 +163,42 @@ let mockOn    = false;
 let watchId   = null;
 let mockBound = false;
 
+/* 説明の2行目を出しておく時間。これを過ぎたら1行に畳む。
+   地図の上に常時2行置くと、縦の短い端末では地図が残らない（所見34） */
+const GPS_SUB_MS = 7000;
+
+let gpsKey   = '';    // いまの状態。変わったときだけ説明を出し直す
+let gpsSub   = '';    // いま出している説明（空なら1行）
+let gpsTimer = null;
+
 function gpsChip(cls, main, sub) {
+  /* 判定に main を使わない。GPSは数秒ごとに誤差の数値だけ変えて呼ばれるため、
+     main を含めると毎回「状態が変わった」ことになり、説明が永久に畳まれない */
+  const key = cls + '\n' + (sub || '');
+  if (key !== gpsKey) {
+    gpsKey = key;
+    gpsSub = sub || '';
+    clearTimeout(gpsTimer);
+    if (gpsSub) {
+      gpsTimer = setTimeout(() => {
+        if (gpsKey !== key) return;   // その間に状態が変わっていたら触らない
+        gpsSub = '';
+        const c = $('#gps');
+        c.textContent = c.dataset.main || '';
+      }, GPS_SUB_MS);
+    }
+  }
+
   const chip = $('#gps');
   chip.className = 'gps ' + cls;
+  chip.dataset.main = main;
+  // 畳んだあとも読めるように、説明は長押し／ホバーで出る所へ残す
+  chip.title = sub || '';
   chip.textContent = main;
-  if (sub) {
+  if (gpsSub) {
     const el = document.createElement('small');
     // sub にはブラウザ由来の文字列が入ることがあるため、HTMLとして解釈させない
-    el.textContent = sub;
+    el.textContent = gpsSub;
     chip.appendChild(document.createElement('br'));
     chip.appendChild(el);
   }
@@ -310,35 +338,23 @@ function drawBottom() {
     $('#sheet-cat').textContent = catName(s.cat);
     $('#sheet-name').textContent = s.name + (s.start ? '（スタート）' : '');
     $('#sheet-dist').textContent = d === null ? '' : fmtDist(d);
-    $('#sheet-desc').textContent = s.desc;
 
     $('#btn-route').href = routeUrl(s);
 
-    const bc = $('#btn-checkin'), bp = $('#btn-photo'),
-          bs = $('#btn-shoot'), bd = $('#btn-photo-del');
+    /* 写真は詳細画面に一本化した。チェックイン後はそちらが次の行き先になるので、
+       「詳しく見る」を主ボタンに切り替えて目を向ける */
+    const bc = $('#btn-checkin');
     if (v) {
       bc.textContent = 'チェックイン済み';
       bc.disabled = true;
       bc.classList.remove('btn-primary');
-      bp.hidden = false;
-      // カメラ用が別に出る端末では、こちらは「アルバム側」とはっきり書く
-      bp.textContent = NEED_SHOOT
-        ? 'アルバムから選ぶ'
-        : (hasPhoto ? '写真を変える' : '写真を追加');
-      bp.classList.toggle('btn-primary', !hasPhoto && !NEED_SHOOT);
-      bs.hidden = !NEED_SHOOT;
-      bs.textContent = hasPhoto ? '撮り直す' : '写真を撮る';
-      bs.classList.toggle('btn-primary', !hasPhoto);
-      bd.hidden = !hasPhoto;
     } else {
       const near = d !== null && d <= CHECKIN_M;
       bc.textContent = near ? 'チェックイン' : '近づくとチェックイン（' + CHECKIN_M + 'm以内）';
       bc.disabled = !near;
       bc.classList.add('btn-primary');
-      bp.hidden = true;
-      bs.hidden = true;
-      bd.hidden = true;
     }
+    $('#btn-detail').classList.toggle('btn-primary', !!v && !hasPhoto);
   } else {
     sheet.hidden = true;
     const n = nextSpot();
@@ -443,23 +459,8 @@ async function dropPhoto(sid) {
   toast('写真を削除しました');
 }
 
-$('#btn-photo').addEventListener('click', () => {
-  const s = targetSpot();
-  if (s) openPicker(s.id);
-});
-
-$('#btn-shoot').addEventListener('click', () => {
-  const s = targetSpot();
-  if (s) openPicker(s.id, 'camera');
-});
-
-$('#btn-photo-del').addEventListener('click', () => {
-  const s = targetSpot();
-  if (s) dropPhoto(s.id);
-});
-
-/* 地図のピンから詳細へ。シートは名前と一言しか置けないので、
-   紹介・距離・訪れた日・写真をまとめて見る場所へ渡せるようにする */
+/* 地図のピンから詳細へ。シートには名前と距離しか置かないので、
+   紹介・訪れた日・写真はすべてこの先にある */
 $('#btn-detail').addEventListener('click', () => {
   const s = targetSpot();
   if (s) openDetail(s.id);
