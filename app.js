@@ -1241,6 +1241,9 @@ async function drawUsage() {
   if (sw) {
     sw.textContent = 'オフライン：' + (await offlineStatus()) +
                      '　ホーム画面：' + (isStandalone() ? '追加済み' : '未追加') +
+                     // 追加の合図（beforeinstallprompt）が来たか。
+                     // 来ない理由は「追加済み」か「条件を満たさない」のどちらか
+                     '　追加の合図：' + (installPrompt ? 'あり' : 'なし') +
                      // 端末ごとに写真ボタンの数を変えているので、どちらになったかを出す
                      '　写真：' + (NEED_SHOOT ? '撮る＋アルバム' : 'まとめて1つ') +
                      '　版：' + APP_VERSION;
@@ -1397,40 +1400,63 @@ async function offlineStatus() {
   }
 }
 
+/* ---------- ホーム画面への追加 ----------
+
+   案内はGARAGEに常設する。地図の上には出さない（所見35）。
+   地図の上に浮かせていたv18までは、案内が出ているあいだ
+   縦617pxの端末で地図が100px潰れていた。
+
+   声をかけるのは初回チェックインのあとの短いトースト1回だけ。
+   トーストは浮いているだけで、他のものを押しのけない。 */
+
 const HINT_KEY = 'suzuroadbook.installHint';
 let installPrompt = null;
 
-/* Android/PC版Chromeはインストールを促せる。iOSにはこのAPIがない */
+/* Android/PC版Chromeはインストールを促せる。iOSにはこのAPIがない。
+   ★すでにホーム画面に追加済みの端末にはこの合図が来ない。
+     そのため「合図がない」だけでは、追加できないのか追加済みなのか区別がつかない */
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
   installPrompt = e;
+  drawInstallPanel();
+  // 合図は読み込みのあとに届く。検証用の行も出し直さないと「なし」のまま残る
+  drawUsage();
 });
 
+function isIOSDevice() {
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+         (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+}
+
+function drawInstallPanel() {
+  const panel = $('#install-panel');
+  if (!panel) return;
+
+  // アプリとして開いているなら、もう用はない
+  if (isStandalone()) { panel.hidden = true; return; }
+  panel.hidden = false;
+
+  $('#install-how').textContent = installPrompt
+    ? '下のボタンから追加できます。'
+    : isIOSDevice()
+      ? '画面下の共有ボタン（□に↑）を押して、「ホーム画面に追加」を選んでください。'
+      : 'ブラウザのメニュー（⋮）から「アプリをインストール」または「ホーム画面に追加」を選んでください。';
+  // ボタンごと隠す。中身だけ消すと、空の行が残って間延びする
+  $('#install-acts').hidden = !installPrompt;
+
+  // 追加済みの人に「追加できます」と言い続けないための但し書き
+  $('#install-state').textContent = installPrompt || isIOSDevice()
+    ? ''
+    : '※すでに追加済みの場合は、この案内は無視してかまいません。'
+      + '追加済みの端末には、ブラウザから追加の合図が届かないためです。';
+}
+
+/** 初回チェックインのあとに一度だけ、トーストで知らせる */
 function showInstallHint() {
   if (isStandalone()) return;
   try { if (localStorage.getItem(HINT_KEY)) return; } catch (e) { /* 読めない端末 */ }
-
-  const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
-              (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-  $('#install-how').textContent = installPrompt
-    ? 'アプリとして開けて、記録も消えにくくなります。'
-    : ios
-      ? '共有ボタンから「ホーム画面に追加」を選ぶと、アプリとして開けて、記録も消えにくくなります。'
-      : 'ブラウザのメニューから「インストール」または「ホーム画面に追加」を選んでください。';
-  $('#install-go').hidden = !installPrompt;
-  const el = $('#install');
-  el.hidden = false;
-  // 下のカードと重ならないよう、実際の高さを測って逃がす
-  document.body.style.setProperty('--hint-h', el.offsetHeight + 'px');
-  document.body.classList.add('has-hint');
-  syncBottomHeight();
-}
-
-function closeInstallHint() {
-  $('#install').hidden = true;
-  document.body.classList.remove('has-hint');
-  syncBottomHeight();
   try { localStorage.setItem(HINT_KEY, '1'); } catch (e) { /* 読めない端末 */ }
+  toast('ホーム画面に追加すると記録が消えにくくなります（GARAGEに手順）');
 }
 
 $('#install-go').addEventListener('click', async () => {
@@ -1438,10 +1464,8 @@ $('#install-go').addEventListener('click', async () => {
   installPrompt.prompt();
   await installPrompt.userChoice;
   installPrompt = null;
-  closeInstallHint();
+  drawInstallPanel();
 });
-
-$('#install-close').addEventListener('click', closeInstallHint);
 
 /* ---------- タブ・検証用ボタン ---------- */
 
@@ -1504,6 +1528,7 @@ function refresh() {
   drawGacha();
   drawGarage();
   drawExportWhen();
+  drawInstallPanel();
 }
 
 /** 検証用：?seed=1 で「何か所か回ったあと」の状態から始める */

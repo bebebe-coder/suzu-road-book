@@ -697,21 +697,7 @@ main {
 
 /* ---------- ホーム画面への追加の案内 ---------- */
 
-.install {
-  position: fixed; left: 10px; right: 10px; z-index: 1500;
-  bottom: calc(var(--safe) + 10px);
-  display: flex; align-items: center; gap: 12px;
-  padding: 12px 14px; border-radius: var(--r-m);
-  background: var(--surface); border: 1px solid var(--brand-2);
-  box-shadow: 0 6px 22px rgba(22,49,74,.2);
-}
-.install-text { flex: 1; min-width: 0; }
-.install-text strong { display: block; font-size: 13px; color: var(--brand); }
-.install-text p { margin: 4px 0 0; font-size: 11px; line-height: 1.55; color: var(--ink-dim); }
-.install-btns { display: flex; flex-direction: column; gap: 6px; flex: 0 0 auto; }
 
-/* 案内が出ている間は、下のカードをその上へ逃がす */
-body.has-hint .sheet, body.has-hint .next { padding-bottom: calc(20px + var(--safe) + var(--hint-h, 0px)); }
 
 /* ---------- トースト ---------- */
 

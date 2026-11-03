@@ -302,6 +302,20 @@
       <p id="sw-status" class="note"></p>
     </section>
 
+    <!-- ホーム画面への追加も「記録を守る」話なので、持ち出しの隣に置く。
+         v18までは地図の上に浮かせていたが、縦の短い端末では
+         案内が出ているあいだ地図が100px潰れていた（所見35） -->
+    <section class="card panel" id="install-panel" hidden>
+      <h3>ホーム画面に追加する</h3>
+      <p>アプリとして開けるようになり、<strong>記録も消えにくくなります。</strong>
+         ブラウザの履歴を消しても残ります。</p>
+      <p id="install-how" class="note"></p>
+      <div class="panel-actions" id="install-acts" hidden>
+        <button id="install-go" class="btn btn-primary">ホーム画面に追加</button>
+      </div>
+      <p id="install-state" class="note"></p>
+    </section>
+
     <section class="card panel exit-panel">
       <h3>旅の記録を珠洲に残しませんか？</h3>
       <p>あなたの旅の記録を送信すると、特別な特典に応募できます。
@@ -403,17 +417,6 @@
   </div>
 
   <p class="play-skip" id="play-skip">タップでとばす</p>
-</div>
-
-<div id="install" class="install" hidden>
-  <div class="install-text">
-    <strong>ホーム画面に追加できます</strong>
-    <p id="install-how"></p>
-  </div>
-  <div class="install-btns">
-    <button id="install-go" class="btn btn-primary btn-sm" hidden>追加</button>
-    <button id="install-close" class="btn btn-sm">閉じる</button>
-  </div>
 </div>
 
 <!-- capture は押されたボタンに応じて付け外しする（app.js の openPicker）。
