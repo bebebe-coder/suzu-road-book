@@ -704,7 +704,9 @@ main {
 .toast {
   position: fixed; left: 50%; bottom: calc(var(--safe) + 22px);
   transform: translateX(-50%); z-index: 2000; max-width: calc(100% - 32px);
-  padding: 10px 16px; border-radius: 999px; font-size: 12.5px; font-weight: 700;
+  /* 丸み。1行なら高さの半分に届くので錠剤のまま、2行以上では角丸の箱になる */
+  padding: 10px 16px; border-radius: 20px; font-size: 12.5px; font-weight: 700;
+  line-height: 1.55; text-align: center;
   background: var(--ink); color: #fff; box-shadow: 0 4px 18px rgba(22,49,74,.35);
   animation: pop .22s ease-out;
 }

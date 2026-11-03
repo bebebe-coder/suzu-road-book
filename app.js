@@ -1496,6 +1496,9 @@ $('#btn-reset').addEventListener('click', async () => {
   clearPhotoUrls();
   state = Store.defaultState();
   Store.saveState(state);
+  /* 案内を出したかどうかの印も消す。記録を消した人は初めての人と同じ状態であり、
+     検証でも「初回チェックインのトースト」を出し直せないと確かめようがない */
+  try { localStorage.removeItem(HINT_KEY); } catch (e) { /* 読めない端末 */ }
   try { await Store.clearPhotos(); } catch (e) { console.warn(e); }
   focusId = null;
   $('#plate').value = '';
@@ -1512,6 +1515,12 @@ function toast(msg) {
   const el = document.createElement('div');
   el.className = 'toast';
   el.textContent = msg;
+  /* 下のカードが出ているときは、その上へ逃がす。
+     画面の底に置くと、チェックイン直後の案内が「詳しく見る」に重なっていた（所見36）。
+     別のタブを見ているときは ancestor が非表示で offsetHeight が0になり、底のまま */
+  const under = [$('#sheet'), $('#next')]
+    .filter((c) => c && !c.hidden && c.offsetHeight > 0)[0];
+  if (under) el.style.bottom = 'calc(var(--safe) + 14px + ' + under.offsetHeight + 'px)';
   document.body.appendChild(el);
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => el.remove(), 2800);
